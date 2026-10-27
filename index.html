@@ -1,103 +1,261 @@
-<!DOCTYPE html>
-<html lang="ru">
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сайт в разработке</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a535c 0%, #2e8b57 100%);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
-        
-        .container {
-            text-align: center;
-            padding: 2rem;
-            max-width: 800px;
-            background-color: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        
-        h1 {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
-            color: #e0f7fa;
-        }
-        
-        .subtitle {
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-            color: #e0f7fa;
-        }
-        
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #e0f7fa;
-            animation: spin 1s ease-in-out infinite;
-            margin: 2rem auto;
-        }
-        
-        .progress {
-            width: 80%;
-            height: 8px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            margin: 2rem auto;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            width: 40%;
-            background: linear-gradient(90deg, #4caf50, #2e7d32);
-            border-radius: 4px;
-            animation: progress 3s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        @keyframes progress {
-            0%, 100% { width: 40%; }
-            50% { width: 70%; }
-        }
-        
-        .note {
-            font-size: 1.1rem;
-            margin-top: 2rem;
-            opacity: 0.8;
-            color: #e0f7fa;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#08090c" />
+  <title>NIGHTFANG — Black Panther Beat 'Em Up</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css?v=45" />
 </head>
 <body>
-    <div class="container">
-        <h1>Сайт в разработке</h1>
-        <p class="subtitle">Мы создаём что-то удивительное!</p>
-        <div class="spinner"></div>
-        <div class="progress">
-            <div class="progress-bar"></div>
-        </div>
-        <p class="note">Этот проект находится в активной разработке. Загляните позже — будет ещё лучше!</p>
+  <div id="app">
+    <canvas id="game-canvas" aria-label="Nightfang game view"></canvas>
+
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="scanlines" aria-hidden="true"></div>
+
+    <div id="loading-screen" class="screen visible">
+      <div class="loading-mark">NF</div>
+      <div class="loading-text" data-i18n="loading.text">WAKING THE PANTHER…</div>
     </div>
+
+    <div id="menu-screen" class="screen overlay hidden">
+      <div class="menu-frame">
+        <div class="menu-emblem" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="presentation" focusable="false">
+            <path d="M11 19 L20 8 L28 19 L36 19 L44 8 L53 19 L48 33 C45 47 37 56 32 56 C27 56 19 47 16 33 Z" fill="currentColor"/>
+          </svg>
+        </div>
+
+        <div class="menu-topline">
+          <div class="eyebrow" data-i18n="menu.eyebrow">AN ORIGINAL 2.5D BEAT 'EM UP</div>
+          <div class="menu-lang" role="group" aria-labelledby="lang-label">
+            <span id="lang-label" class="menu-lang-label" data-i18n="menu.language">LANGUAGE</span>
+            <div class="lang-switch">
+              <button class="lang-btn" type="button" data-lang="ru" aria-label="Русский" aria-pressed="false">RU</button>
+              <button class="lang-btn" type="button" data-lang="en" aria-label="English" aria-pressed="true">EN</button>
+            </div>
+          </div>
+        </div>
+
+        <h1 class="game-title">NIGHT<span>FANG</span></h1>
+        <p class="tagline" data-i18n="menu.tagline">One panther. Three districts. No mercy.</p>
+
+        <div class="menu-actions">
+          <button id="btn-start" class="btn btn-primary" type="button" data-i18n="menu.start">BEGIN THE HUNT</button>
+          <button id="btn-menu-controls" class="btn btn-ghost" type="button" data-i18n="menu.controls">CONTROLS</button>
+        </div>
+
+        <div id="menu-controls" class="controls-card hidden">
+          <div class="control-row"><span class="keys"><kbd>A</kbd><kbd>D</kbd></span><span data-i18n="ctrl.move">Move / stalk</span></div>
+          <div class="control-row"><span class="keys"><kbd>W</kbd><kbd>S</kbd></span><span data-i18n="ctrl.depth">Move in depth</span></div>
+          <div class="control-row"><span class="keys"><kbd>SPACE</kbd></span><span data-i18n="ctrl.jump">Jump · press again in air for a double jump</span></div>
+          <div class="control-row"><span class="keys"><kbd>J</kbd></span><span data-i18n="ctrl.swipe">Forepaw swipe combo</span></div>
+          <div class="control-row"><span class="keys"><kbd>K</kbd></span><span data-i18n="ctrl.bite">Bite</span></div>
+          <div class="control-row"><span class="keys"><kbd>L</kbd></span><span data-i18n="ctrl.pounce">Pounce (special)</span></div>
+          <div class="control-row"><span class="keys"><kbd>I</kbd></span><span data-i18n="ctrl.grab">Grab / throw a stunned enemy · cooldown bar</span></div>
+          <div class="control-row"><span class="keys"><kbd>SHIFT</kbd></span><span data-i18n="ctrl.run">Run</span></div>
+          <div class="control-row"><span class="keys"><kbd>P</kbd><kbd>ESC</kbd></span><span data-i18n="ctrl.pause">Pause</span></div>
+          <div class="control-row"><span class="keys"><kbd>M</kbd></span><span data-i18n="ctrl.mute">Mute sound</span></div>
+        </div>
+
+        <div class="menu-footer">
+          <span><span data-i18n="menu.best">BEST SCORE</span> <strong id="menu-best">0</strong></span>
+          <span data-i18n="menu.footer">KEYBOARD + GAMEPAD</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="hero-plate">
+          <div class="hero-mark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" role="img" aria-label="Panther icon">
+              <path d="M11 19 L20 8 L28 19 L36 19 L44 8 L53 19 L48 33 C45 47 37 56 32 56 C27 56 19 47 16 33 Z" fill="currentColor"/>
+              <path d="M24 30 L30 28 L28 34 Z M40 30 L46 28 L44 34 Z" fill="#0a0b0e"/>
+              <path d="M28 43 L32 47 L36 43" fill="none" stroke="#0a0b0e" stroke-width="2.5"/>
+            </svg>
+          </div>
+          <div class="hero-bars">
+            <div class="bar-label"><span data-i18n="hud.vitality">VITALITY</span><span id="health-text">100 / 100</span></div>
+            <div class="bar-track health-track"><div id="health-fill" class="bar-fill"></div></div>
+            <div class="bar-label small"><span data-i18n="hud.lives">LIVES</span><span id="lives-text">3</span></div>
+          </div>
+        </div>
+        <div id="buff-tag" class="buff-tag hidden" data-i18n="hud.focus">FOCUS SURGE</div>
+        <div id="boss-wrap" class="boss-wrap hidden">
+          <div class="boss-name" id="boss-name">BOSS</div>
+          <div class="bar-track boss-track"><div id="boss-fill" class="bar-fill boss-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div id="level-label" class="level-label">DISTRICT 1 · NEON QUAY</div>
+        <div id="objective" class="objective">STALK ALONG THE QUAY</div>
+      </div>
+
+      <div class="hud-right">
+        <div class="stat"><span class="stat-label" data-i18n="hud.score">SCORE</span><span id="score-text" class="stat-value">0</span></div>
+        <div class="stat"><span class="stat-label" data-i18n="hud.coins">COINS</span><span id="coin-text" class="stat-value gold">0</span></div>
+        <div class="meters">
+          <div class="meter">
+            <div class="meter-head"><span class="stat-label" data-i18n="hud.pounce">POUNCE</span><span id="special-text" class="special-text">READY</span></div>
+            <div class="bar-track special-track"><div id="special-fill" class="bar-fill special-fill"></div></div>
+          </div>
+          <div class="meter">
+            <div class="meter-head"><span class="stat-label" data-i18n="hud.jump">JUMP</span><span id="jump-text" class="special-text">2 / 2</span></div>
+            <div class="bar-track special-track"><div id="jump-fill" class="bar-fill jump-fill"></div></div>
+          </div>
+          <div class="meter">
+            <div class="meter-head"><span class="stat-label" data-i18n="hud.grab">GRAB</span><span id="grab-text" class="special-text">READY</span></div>
+            <div class="bar-track special-track"><div id="grab-fill" class="bar-fill grab-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="combo-wrap" class="combo-wrap hidden">
+        <span id="combo-count" class="combo-count">2</span>
+        <span class="combo-label" data-i18n="hud.combo">HIT COMBO</span>
+      </div>
+
+      <div id="grab-hint" class="grab-hint hidden">I · <span data-i18n="hud.grabHint">GRAB STAGGERED FOE</span></div>
+
+      <div id="hint-bar" class="hint-bar">
+        <span><kbd>J</kbd> <span data-i18n="hud.swipe">SWIPE</span></span>
+        <span><kbd>K</kbd> <span data-i18n="hud.bite">BITE</span></span>
+        <span><kbd>L</kbd> <span data-i18n="hud.pounceShort">POUNCE</span></span>
+        <span><kbd>SPACE</kbd> <span data-i18n="hud.jumpShort">JUMP ×2</span></span>
+        <span><kbd>I</kbd> <span data-i18n="hud.grabShort">GRAB STAGGERED</span></span>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <div id="secret-banner" class="secret-banner hidden">
+      <span class="secret-kicker" data-i18n="secret.kicker">HIDDEN CACHE</span>
+      <strong data-i18n="secret.found">SECRET FOUND</strong>
+    </div>
+
+    <div id="pause-screen" class="screen overlay hidden">
+      <div class="modal">
+        <div class="modal-kicker" data-i18n="pause.kicker">THE HUNT PAUSES</div>
+        <h2 data-i18n="pause.title">PAUSED</h2>
+        <div class="modal-actions">
+          <button id="btn-resume" class="btn btn-primary" type="button" data-i18n="pause.resume">RESUME</button>
+          <button id="btn-pause-restart" class="btn btn-ghost" type="button" data-i18n="pause.restart">RESTART LEVEL</button>
+          <button id="btn-pause-menu" class="btn btn-ghost" type="button" data-i18n="pause.menu">MAIN MENU</button>
+        </div>
+        <div class="modal-foot"><span data-i18n="pause.sound">SOUND:</span> <span id="pause-mute-state">ON</span> · <span data-i18n="pause.toggle">M TO TOGGLE</span></div>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="screen overlay hidden">
+      <div class="modal">
+        <div class="modal-kicker danger" data-i18n="gameover.kicker">THE NIGHT CLAIMS YOU</div>
+        <h2 data-i18n="gameover.title">GAME OVER</h2>
+        <p class="modal-copy"><span data-i18n="gameover.final">Final score:</span> <strong id="gameover-score">0</strong> · <span data-i18n="gameover.coins">Coins:</span> <strong id="gameover-coins">0</strong></p>
+        <div class="modal-actions">
+          <button id="btn-retry" class="btn btn-primary" type="button" data-i18n="gameover.retry">RISE AGAIN</button>
+          <button id="btn-gameover-menu" class="btn btn-ghost" type="button" data-i18n="gameover.menu">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="levelclear-screen" class="screen overlay hidden">
+      <div class="modal success">
+        <div class="modal-kicker" data-i18n="clear.kicker">DISTRICT CLEARED</div>
+        <h2 data-i18n="clear.title">LEVEL COMPLETE</h2>
+        <p class="modal-copy" id="levelclear-copy">Score: 0 · Coins: 0</p>
+        <div class="modal-actions">
+          <button id="btn-continue" class="btn btn-primary" type="button" data-i18n="clear.continue">ENTER THE NEXT DISTRICT</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="victory-screen" class="screen overlay hidden">
+      <div class="modal success">
+        <div class="modal-kicker" data-i18n="victory.kicker">THE CITY BREATHES</div>
+        <h2 data-i18n="victory.title">VICTORY</h2>
+        <p class="modal-copy" data-i18n="victory.copy">Every district is free. The panther fades into the dark.</p>
+        <p class="modal-copy"><span data-i18n="victory.final">Final score:</span> <strong id="victory-score">0</strong> · <span data-i18n="victory.coins">Coins:</span> <strong id="victory-coins">0</strong></p>
+        <div class="modal-actions">
+          <button id="btn-play-again" class="btn btn-primary" type="button" data-i18n="victory.again">HUNT AGAIN</button>
+          <button id="btn-victory-menu" class="btn btn-ghost" type="button" data-i18n="victory.menu">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="touch-controls" aria-hidden="false">
+      <div class="touch-dpad">
+        <button class="touch-btn t-up" data-action="up" type="button" data-i18n-aria="touch.up" aria-label="Move up">▲</button>
+        <button class="touch-btn t-left" data-action="left" type="button" data-i18n-aria="touch.left" aria-label="Move left">◀</button>
+        <button class="touch-btn t-right" data-action="right" type="button" data-i18n-aria="touch.right" aria-label="Move right">▶</button>
+        <button class="touch-btn t-down" data-action="down" type="button" data-i18n-aria="touch.down" aria-label="Move down">▼</button>
+      </div>
+      <div class="touch-actions">
+        <button class="touch-btn t-small" data-action="jump" type="button" data-i18n="touch.jump">JUMP</button>
+        <button class="touch-btn t-small" data-action="grab" type="button" data-i18n="touch.grab">GRAB</button>
+        <button class="touch-btn" data-action="swipe" type="button" data-i18n="touch.swipe">SWIPE</button>
+        <button class="touch-btn" data-action="bite" type="button" data-i18n="touch.bite">BITE</button>
+        <button class="touch-btn t-special" data-action="pounce" type="button" data-i18n="touch.pounce">POUNCE</button>
+      </div>
+      <button id="touch-pause" class="touch-btn t-pause" type="button" data-i18n-aria="touch.pause" aria-label="Pause">❚❚</button>
+    </div>
+
+    <div id="fatal-error" class="screen overlay hidden">
+      <div class="modal">
+        <div class="modal-kicker danger" data-i18n="fatal.kicker">RENDERER OFFLINE</div>
+        <h2 data-i18n="fatal.title">WEBGL UNAVAILABLE</h2>
+        <p class="modal-copy" id="fatal-copy" data-i18n="fatal.copy">This game needs WebGL. Try a current Chrome, Edge, or Firefox build.</p>
+      </div>
+    </div>
+
+    <div id="trailer" class="trailer hidden" aria-hidden="true" aria-label="Nightfang intro trailer">
+      <div class="trailer-stage" id="trailer-stage">
+        <div class="trailer-slides" id="trailer-slides">
+          <div class="trailer-slide" data-slide="0"><img src="img/trailer-01.jpg" alt="" /></div>
+          <div class="trailer-slide" data-slide="1"><img src="img/trailer-02.jpg" alt="" /></div>
+          <div class="trailer-slide" data-slide="2"><img src="img/trailer-03.jpg" alt="" /></div>
+          <div class="trailer-slide" data-slide="3"><img src="img/trailer-04.jpg" alt="" /></div>
+          <div class="trailer-slide" data-slide="4"><img src="img/trailer-05.jpg" alt="" /></div>
+          <div class="trailer-slide" data-slide="5"><img src="img/trailer-06.jpg" alt="" /></div>
+        </div>
+
+        <canvas id="trailer-rain" class="trailer-rain" aria-hidden="true"></canvas>
+        <div class="trailer-vignette" aria-hidden="true"></div>
+        <div class="trailer-grain" aria-hidden="true"></div>
+        <div class="trailer-cut" aria-hidden="true"></div>
+
+        <div id="trailer-subtitle" class="trailer-subtitle" aria-live="polite"></div>
+
+        <div id="trailer-title-card" class="trailer-title-card">
+          <div class="trailer-title-kicker" data-i18n="trailer.origin">A NIGHTFANG ORIGIN STORY</div>
+          <div class="trailer-title-main">TEST SUBJECT <span>07</span></div>
+          <div class="trailer-title-sub">NIGHTFANG</div>
+        </div>
+
+        <button id="trailer-skip" class="trailer-skip" type="button"><span data-i18n="trailer.skip">SKIP</span> <span aria-hidden="true">▸</span></button>
+        <div class="trailer-progress" aria-hidden="true"><div id="trailer-progress-fill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/GLTFLoader.js?v=45"></script>
+  <script src="vendor/panther-model.js?v=45"></script>
+  <script src="src/i18n.js?v=45"></script>
+  <script src="src/assets.js?v=45"></script>
+  <script src="src/input.js?v=45"></script>
+  <script src="src/audio.js?v=45"></script>
+  <script src="src/ui.js?v=45"></script>
+  <script src="src/particles.js?v=45"></script>
+  <script src="src/panther.js?v=45"></script>
+  <script src="src/enemy.js?v=45"></script>
+  <script src="src/combat.js?v=45"></script>
+  <script src="src/level.js?v=45"></script>
+  <script src="src/game.js?v=45"></script>
+  <script src="src/trailer.js?v=45"></script>
+  <script src="src/main.js?v=45"></script>
 </body>
 </html>

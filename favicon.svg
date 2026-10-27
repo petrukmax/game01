@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nightfang">
+  <rect width="64" height="64" rx="14" fill="#08090c"/>
+  <path d="M11 19 L20 8 L28 19 L36 19 L44 8 L53 19 L48 33 C45 47 37 56 32 56 C27 56 19 47 16 33 Z" fill="#c8ff55"/>
+  <circle cx="24" cy="31" r="3" fill="#08090c"/>
+  <circle cx="40" cy="31" r="3" fill="#08090c"/>
+  <path d="M27 43 L32 47 L37 43" fill="none" stroke="#08090c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
