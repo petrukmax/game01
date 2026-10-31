@@ -4,11 +4,13 @@
   const NF = (window.NF = window.NF || {});
   const I18n = NF.I18n || { t: function (key) { return key; } };
 
-  const FRAME_MS = 8000;
-  const CUT_MS = 190;
-  const TITLE_MS = 5000;
+  // A short 10-second teaser: six frames at 1.4 s plus a 1.6 s title card.
+  const FRAME_MS = 1400;
+  const CUT_MS = 150;
+  const TITLE_MS = 1600;
   const SLIDE_COUNT = 6;
   const TOTAL_MS = FRAME_MS * SLIDE_COUNT + TITLE_MS;
+  const SEEN_KEY = "nightfang-intro-seen";
 
   function Trailer() {
     this.root = document.getElementById("trailer");
@@ -36,10 +38,14 @@
     this.audioCtx = null;
 
     this.boundKey = this.onKey.bind(this);
+    this.boundPointer = this.onPointer.bind(this);
     this.boundResize = this.resizeRain.bind(this);
 
     if (this.skipBtn) {
       this.skipBtn.addEventListener("click", () => this.finish(true));
+    }
+    if (this.root) {
+      this.root.addEventListener("pointerdown", this.boundPointer);
     }
 
     // Warm the local images so the first hard cut never shows a blank frame.
@@ -63,8 +69,26 @@
     this.timers.length = 0;
   };
 
-  Trailer.prototype.play = function (onDone) {
+  Trailer.prototype.shouldPlay = function () {
+    try {
+      return localStorage.getItem(SEEN_KEY) !== "1";
+    } catch (err) {
+      return true;
+    }
+  };
+
+  Trailer.prototype.markSeen = function () {
+    try {
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch (err) { /* private mode */ }
+  };
+
+  Trailer.prototype.play = function (onDone, force) {
     if (!this.root || this.active) return;
+    if (!force && !this.shouldPlay()) {
+      if (onDone) onDone();
+      return;
+    }
     this.active = true;
     this.done = false;
     this.onDone = onDone || function () {};
@@ -84,6 +108,7 @@
     this.startRain();
     this.startAudio();
     window.addEventListener("keydown", this.boundKey, true);
+    window.addEventListener("pointerdown", this.boundPointer, true);
     window.addEventListener("resize", this.boundResize);
 
     this.showSlide(0);
@@ -103,8 +128,7 @@
     this.slides.forEach(function (s) { s.classList.remove("active"); });
     slide.classList.add("active");
     const n = index + 1;
-    this.subtitle.textContent =
-      I18n.t("trailer.sub" + n + "a") + "\n" + I18n.t("trailer.sub" + n + "b");
+    this.subtitle.textContent = I18n.t("trailer.teaser" + n);
     const self = this;
     requestAnimationFrame(function () {
       if (self.active) self.subtitle.classList.add("visible");
@@ -139,20 +163,27 @@
 
   Trailer.prototype.onKey = function (e) {
     if (!this.active) return;
-    if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
-      e.preventDefault();
-      e.stopPropagation();
-      this.finish(true);
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    this.finish(true);
+  };
+
+  Trailer.prototype.onPointer = function (e) {
+    if (!this.active) return;
+    if (e && e.target && e.target.id === "trailer-skip") return;
+    if (e) e.preventDefault();
+    this.finish(true);
   };
 
   Trailer.prototype.finish = function (immediate) {
     if (!this.active || this.done) return;
     this.done = true;
+    this.markSeen();
     this.clearTimers();
     this.stopRain();
     this.stopAudio();
     window.removeEventListener("keydown", this.boundKey, true);
+    window.removeEventListener("pointerdown", this.boundPointer, true);
     window.removeEventListener("resize", this.boundResize);
 
     const self = this;
@@ -280,63 +311,15 @@
 
   Trailer.prototype.startAudio = function () {
     const game = NF.game;
-    if (game && game.audio && game.audio.muted) return;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    try {
-      const ctx = new Ctx();
-      this.audioCtx = ctx;
-      const seconds = 2;
-      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < data.length; i++) {
-        const white = Math.random() * 2 - 1;
-        last = (last + 0.022 * white) / 1.022;
-        data[i] = last * 3.4;
-      }
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      const low = ctx.createBiquadFilter();
-      low.type = "lowpass";
-      low.frequency.value = 1450;
-      low.Q.value = 0.35;
-      const high = ctx.createBiquadFilter();
-      high.type = "highpass";
-      high.frequency.value = 180;
-      const gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      source.connect(low);
-      low.connect(high);
-      high.connect(gain);
-      gain.connect(ctx.destination);
-      source.start();
-      const now = ctx.currentTime;
-      gain.gain.exponentialRampToValueAtTime(0.055, now + 1.1);
-      this.audio = { ctx: ctx, source: source, gain: gain };
-      if (ctx.state === "suspended") ctx.resume();
-    } catch (err) {
-      this.audio = null;
-    }
+    if (!game || !game.audio) return;
+    game.audio.ensure();
+    game.audio.startRumble();
   };
 
   Trailer.prototype.stopAudio = function () {
-    const a = this.audio;
+    const game = NF.game;
+    if (game && game.audio) game.audio.stopRumble();
     this.audio = null;
-    if (!a) return;
-    try {
-      const now = a.ctx.currentTime;
-      a.gain.gain.cancelScheduledValues(now);
-      a.gain.gain.setValueAtTime(Math.max(0.0001, a.gain.gain.value), now);
-      a.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-      a.source.stop(now + 0.5);
-      setTimeout(function () {
-        try { a.ctx.close(); } catch (err) { /* already closed */ }
-      }, 700);
-    } catch (err) {
-      try { a.ctx.close(); } catch (closeErr) { /* ignore */ }
-    }
     this.audioCtx = null;
   };
 

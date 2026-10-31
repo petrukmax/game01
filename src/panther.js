@@ -72,6 +72,9 @@
     this.buff = 0;
     this.comboInputCount = 0;
     this.comboTimer = 0;
+    this.bufferAction = "";
+    this.bufferTime = 0;
+    this.autoFaceTimer = 0;
     this.attackFired = false;
     this.swipeSide = 0;
     this.grabbed = null;
@@ -997,6 +1000,9 @@
     this.buff = 0;
     this.comboInputCount = 0;
     this.comboTimer = 0;
+    this.bufferAction = "";
+    this.bufferTime = 0;
+    this.autoFaceTimer = 0;
     this.grabbed = null;
     this.grabHoldTime = 0;
     this.dead = false;
@@ -1076,7 +1082,9 @@
   };
 
   Panther.prototype.startLight = function () {
-    if (!this.canAct() && !(this.state === "jump" && this.y > 0.05)) return;
+    const cancelWindow = this.state === "swipe" && this.stateTime / Math.max(0.001, this.stateDuration) > 0.55;
+    if (!this.canAct() && !cancelWindow && !(this.state === "jump" && this.y > 0.05)) return;
+    this.faceNearestTarget(2.0, 1.25);
     if (this.comboInputCount >= 2) {
       this.startBite(true);
       this.comboInputCount = 0;
@@ -1086,6 +1094,60 @@
       this.comboInputCount++;
       this.comboTimer = 1.05;
     }
+  };
+
+  // Soft lock-on: a melee press turns the panther toward the closest foe in
+  // front of / beside her. Without this, every attack made while facing away
+  // is a guaranteed whiff and the game reads as broken.
+  Panther.prototype.nearestTarget = function (maxDx, maxDz) {
+    if (!this.game || !this.game.enemies) return null;
+    const dxLimit = maxDx || 2.0;
+    const dzLimit = maxDz || 1.25;
+    let best = null;
+    let bestD = Infinity;
+    for (const e of this.game.enemies) {
+      if (!e || e.dead || e.removable) continue;
+      if (e.state === "grabbed" || e.state === "thrown") continue;
+      const dx = e.x - this.x;
+      const dz = e.z - this.z;
+      if (Math.abs(dz) > dzLimit) continue;
+      const adx = Math.abs(dx);
+      if (adx > dxLimit) continue;
+      const d = adx + Math.abs(dz) * 0.6;
+      if (d < bestD) {
+        bestD = d;
+        best = e;
+      }
+    }
+    return best;
+  };
+
+  Panther.prototype.faceNearestTarget = function (maxDx, maxDz) {
+    const target = this.nearestTarget(maxDx, maxDz);
+    if (!target) return false;
+    this.facing = target.x >= this.x ? 1 : -1;
+    return true;
+  };
+
+  Panther.prototype.setBuffered = function (action) {
+    this.bufferAction = action;
+    this.bufferTime = 0.16;
+  };
+
+  Panther.prototype.takeBuffered = function (action) {
+    if (this.bufferAction !== action || this.bufferTime <= 0) return false;
+    this.bufferAction = "";
+    this.bufferTime = 0;
+    return true;
+  };
+
+  Panther.prototype.updateBuffer = function (input) {
+    if (!input || !input.wasPressed) return;
+    if (input.wasPressed("jump")) this.setBuffered("jump");
+    if (input.wasPressed("swipe")) this.setBuffered("swipe");
+    if (input.wasPressed("bite")) this.setBuffered("bite");
+    if (input.wasPressed("pounce")) this.setBuffered("pounce");
+    if (input.wasPressed("grab")) this.setBuffered("grab");
   };
 
   Panther.prototype.startSwipe = function (index) {
@@ -1102,6 +1164,7 @@
 
   Panther.prototype.startBite = function (finisher) {
     if (!this.canAct() && !(this.state === "jump" && this.y > 0.05)) return;
+    this.faceNearestTarget(1.9, 1.2);
     this.state = "bite";
     this.stateLabel = "bite";
     this.stateTime = 0;
@@ -1119,6 +1182,7 @@
       this.game.ui.toast(I18n.t("toast.pounce", { s: this.specialCooldown.toFixed(1) }), 1100);
       return;
     }
+    this.faceNearestTarget(2.6, 1.2);
     this.state = "pounce";
     this.stateLabel = "pounce";
     this.stateTime = 0;
@@ -1295,7 +1359,8 @@
     this.stateDuration = 0;
     this.invuln = 2.2;
     this.flash = 0;
-    this.invuln = 2.2;
+    this.bufferAction = "";
+    this.bufferTime = 0;
     this.jumpStamina = this.maxJumpStamina;
     this.grabCooldown = 0;
     this.jumpCount = 0;
@@ -1323,6 +1388,11 @@
   Panther.prototype.update = function (dt, input) {
     if (!this.game) return;
     this.animTime += dt;
+    this.updateBuffer(input);
+    if (this.bufferTime > 0) {
+      this.bufferTime -= dt;
+      if (this.bufferTime <= 0) this.bufferAction = "";
+    }
     if (this.invuln > 0) this.invuln -= dt;
     if (this.flash > 0) this.flash -= dt;
     if (this.buff > 0) this.buff -= dt;
@@ -1448,6 +1518,12 @@
     let len = Math.hypot(mx, mz);
     if (len > 1) { mx /= len; mz /= len; }
     if (Math.abs(mx) > 0.08) this.facing = mx > 0 ? 1 : -1;
+    if (Math.abs(mx) < 0.08) {
+      this.autoFaceTimer += dt;
+      if (this.autoFaceTimer > 0.3) this.faceNearestTarget(2.6, 1.5);
+    } else {
+      this.autoFaceTimer = 0;
+    }
     const sx = running ? RUN_SPEED : WALK_SPEED;
     const sz = running ? 3.5 : DEPTH_SPEED;
     this.vx = A.damp(this.vx, mx * sx, 13, dt);
@@ -1464,23 +1540,23 @@
       this.gaitBlend = A.damp(this.gaitBlend, 0, 5.5, dt);
     }
 
-    if (input.wasPressed("jump")) {
+    if (this.takeBuffered("jump")) {
       this.startJump();
       return;
     }
-    if (input.wasPressed("swipe")) {
+    if (this.takeBuffered("swipe")) {
       this.startLight();
       return;
     }
-    if (input.wasPressed("bite")) {
+    if (this.takeBuffered("bite")) {
       this.startBite(false);
       return;
     }
-    if (input.wasPressed("pounce")) {
+    if (this.takeBuffered("pounce")) {
       this.startPounce();
       return;
     }
-    if (input.wasPressed("grab")) {
+    if (this.takeBuffered("grab")) {
       if (this.state === "idle" || this.state === "walk" || this.state === "run") this.tryGrab();
     }
   };
@@ -1570,9 +1646,9 @@
       this.game.audio.play("swipe", { pan: this.game.combat.panFor(this.x + this.facing * 0.9) });
       this.game.audio.play("scratch", { pan: this.game.combat.panFor(this.x + this.facing * 0.9) });
       this.game.combat.heroMelee("swipe", this, {
-        damage: 6 * this.damageMultiplier(),
-        knockback: 1.3,
-        hitstop: 0.045,
+        damage: 9 * this.damageMultiplier(),
+        knockback: 1.4,
+        hitstop: 0.05,
         range: 1.15,
         radius: 0.9,
         y: 0.62
@@ -1604,6 +1680,10 @@
         this.jumpStamina = this.maxJumpStamina;
         this.airJumpTime = 0;
       }
+    }
+    if (p > 0.58 && this.takeBuffered("swipe")) {
+      this.startLight();
+      return;
     }
     if (p >= 1) {
       if (this.y > 0.001) {

@@ -7,6 +7,46 @@
   const I18n = NF.I18n || { t: function (key) { return key; } };
 
   const BEST_KEY = "nightfang-best-score";
+  const DIFF_KEY = "nightfang-difficulty";
+
+  const DIFFICULTIES = {
+    easy: {
+      labelKey: "diff.easy",
+      noteKey: "diff.easy.note",
+      lives: 5,
+      health: 120,
+      enemyHealth: 0.8,
+      enemyDamage: 0.6,
+      maxAlive: 3
+    },
+    normal: {
+      labelKey: "diff.normal",
+      noteKey: "diff.normal.note",
+      lives: 3,
+      health: 100,
+      enemyHealth: 1,
+      enemyDamage: 1,
+      maxAlive: 3
+    },
+    hard: {
+      labelKey: "diff.hard",
+      noteKey: "diff.hard.note",
+      lives: 2,
+      health: 90,
+      enemyHealth: 1.2,
+      enemyDamage: 1.35,
+      maxAlive: 4
+    }
+  };
+
+  function readStored(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : value;
+    } catch (err) {
+      return fallback;
+    }
+  }
 
   function Game(scene, camera, renderer, input, ui, audio, lights) {
     this.scene = scene;
@@ -25,6 +65,10 @@
     this.coins = 0;
     this.lives = 3;
     this.bestScore = 0;
+    this.difficulty = "normal";
+    this.difficulties = DIFFICULTIES;
+    const storedDiff = readStored(DIFF_KEY, "normal");
+    if (DIFFICULTIES[storedDiff]) this.difficulty = storedDiff;
     try {
       this.bestScore = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
     } catch (err) {
@@ -86,7 +130,62 @@
   }
 
   Game.prototype.init = function () {
+    this.hero.maxHealth = this.difficultyMods().health;
+    this.hero.health = this.hero.maxHealth;
     this.showMenu();
+  };
+
+  Game.prototype.difficultyMods = function () {
+    return this.difficulties[this.difficulty] || this.difficulties.normal;
+  };
+
+  Game.prototype.setDifficulty = function (name, silent) {
+    if (!this.difficulties[name]) return;
+    this.difficulty = name;
+    try {
+      localStorage.setItem(DIFF_KEY, name);
+    } catch (err) { /* private mode */ }
+    const mods = this.difficultyMods();
+    this.hero.maxHealth = mods.health;
+    if (this.state === "menu" || this.state === "boot") {
+      this.hero.health = mods.health;
+      this.lives = mods.lives;
+      this.hero.lives = mods.lives;
+    }
+    if (this.ui) {
+      if (this.ui.setDifficulty) {
+        this.ui.setDifficulty(name, I18n.t(mods.noteKey));
+      }
+      this.ui.setHealth(this.hero.health, this.hero.maxHealth);
+      this.ui.setLives(this.lives);
+    }
+    if (!silent) {
+      const label = I18n.t(mods.labelKey);
+      if (this.ui) this.ui.toast(I18n.t("toast.difficulty", { name: label }), 1200);
+    }
+  };
+
+  Game.prototype.toggleFullscreen = function () {
+    const doc = document;
+    const el = doc.documentElement;
+    const active = doc.fullscreenElement || doc.webkitFullscreenElement;
+    if (active) {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if (exit) {
+        try { exit.call(doc); } catch (err) { /* ignore */ }
+      }
+      return false;
+    }
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try {
+        const result = req.call(el);
+        if (result && typeof result.catch === "function") result.catch(function () {});
+      } catch (err) { /* ignore */ }
+      return true;
+    }
+    if (this.ui) this.ui.toast(I18n.t("toast.fullscreenUnsupported"), 1400);
+    return false;
   };
 
   Game.prototype.applyMenuLighting = function () {
@@ -276,7 +375,11 @@
     this.ui.hideBoss();
     this.ui.hidePause();
     this.ui.showGrabHint(false);
+    this.setDifficulty(this.difficulty, true);
+    if (this.ui.hideWave) this.ui.hideWave();
     this.audio.play("click");
+    if (this.audio.startMusic) this.audio.startMusic("menu");
+    if (this.audio.setMusicIntensity) this.audio.setMusicIntensity(0.15);
   };
 
   Game.prototype.requestStart = function () {
@@ -315,9 +418,12 @@
     this.audio.ensure();
     this.disposeMenuStage();
     this.cleanupLevel();
+    const mods = this.difficultyMods();
     this.score = 0;
     this.coins = 0;
-    this.lives = 3;
+    this.lives = mods.lives;
+    this.hero.maxHealth = mods.health;
+    this.hero.health = mods.health;
     this.combo = 0;
     this.comboTimer = 0;
     this.hitstop = 0;
@@ -352,8 +458,11 @@
     this.levelStartCoins = this.coins;
     this.applyLevelLighting(this.level.def);
 
+    const mods = this.difficultyMods();
+    this.hero.maxHealth = mods.health;
     this.hero.lives = this.lives;
     this.hero.reset(3, 0);
+    this.hero.health = this.hero.maxHealth;
     this.hero.buff = 0;
     this.hero.specialCooldown = 0;
     this.hero.root.visible = true;
@@ -383,7 +492,18 @@
     this.ui.hideBoss();
     this.ui.setObjective(this.level.objective);
     this.ui.showGrabHint(false);
+    if (this.ui.hideWave) this.ui.hideWave();
     this.ui.toast(this.level.district + " · " + this.level.name, 2400);
+    if (this.audio.startMusic) this.audio.startMusic(this.level.theme || "street");
+    if (this.audio.setMusicIntensity) this.audio.setMusicIntensity(0.2);
+    if (index === 0 && this.playTime === 0) {
+      const self = this;
+      setTimeout(function () {
+        if (self.state === "playing" && self.ui) {
+          self.ui.toast(I18n.t("toast.autoTarget"), 2400);
+        }
+      }, 3200);
+    }
 
     this.state = "playing";
     this.updateCamera(0, true);
@@ -413,6 +533,7 @@
     this.ui.setCoins(this.coins);
     this.ui.showLevelClear(this.score, this.coins);
     this.audio.play("levelClear");
+    if (this.audio.setMusicIntensity) this.audio.setMusicIntensity(0.1);
     this.saveBest();
     for (let i = 0; i < 24; i++) {
       this.particles.spawn(
@@ -430,6 +551,7 @@
     this.ui.hideAllOverlays();
     this.ui.showVictory(this.score, this.coins);
     this.audio.play("victory");
+    if (this.audio.stopMusic) this.audio.stopMusic();
     this.saveBest();
   };
 
@@ -437,6 +559,7 @@
     this.state = "gameover";
     this.ui.showGameOver(this.score, this.coins);
     this.audio.play("gameOver");
+    if (this.audio.stopMusic) this.audio.stopMusic();
     this.saveBest();
   };
 
@@ -599,6 +722,10 @@
       this.toggleMute();
     }
 
+    if (this.input.wasPressed("fullscreen")) {
+      this.toggleFullscreen();
+    }
+
     if (this.state === "menu") {
       if (this.input.wasPressed("confirm")) {
         this.requestStart();
@@ -685,6 +812,7 @@
         enemy.update(dt, this.hero);
       }
       this.separateEnemies();
+      this.separateHero();
 
       if (this.level) this.level.update(dt);
 
@@ -693,6 +821,12 @@
       this.updateCamera(dt);
       this.updateLightsFollow();
       this.updateHud();
+      if (this.audio.setMusicIntensity) {
+        let intensity = 0.2;
+        if (this.level && this.level.waveActive) intensity = 0.62;
+        if (this.level && this.level.bossEnemy && !this.level.bossEnemy.dead) intensity = 0.9;
+        this.audio.setMusicIntensity(intensity);
+      }
 
       if (this.playTime > 14 && !this.hintFaded) {
         this.hintFaded = true;
@@ -739,6 +873,38 @@
     }
   };
 
+  // The hero has a body too: enemies can no longer stand inside the panther and
+  // clip through her while attacking.
+  Game.prototype.separateHero = function () {
+    const hero = this.hero;
+    if (!hero || hero.dead) return;
+    for (const e of this.enemies) {
+      if (!e || e.dead) continue;
+      if (e.state === "grabbed" || e.state === "thrown") continue;
+      if (Math.abs((e.y || 0) - (hero.y || 0)) > 0.9) continue;
+      const dx = e.x - hero.x;
+      const dz = e.z - hero.z;
+      const min = (hero.radius + e.radius) * 0.74;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < min * min && d2 > 0.0001) {
+        const d = Math.sqrt(d2);
+        const push = min - d;
+        const nx = dx / d;
+        const nz = dz / d;
+        hero.x -= nx * push * 0.45;
+        hero.z -= nz * push * 0.45;
+        e.x += nx * push * 0.55;
+        e.z += nz * push * 0.55;
+        if (this.level) {
+          this.level.clampEntity(hero);
+          this.level.clampEntity(e);
+        }
+        hero.syncRoot();
+        e.syncRoot();
+      }
+    }
+  };
+
   Game.prototype.removeExpiredEnemies = function () {
     let removed = false;
     for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -773,7 +939,15 @@
   Game.prototype.updateCamera = function (dt, immediate) {
     const hero = this.hero;
     if (!hero || !this.level) return;
-    let desiredX = hero.x + 1.15;
+    // Narrow (portrait) viewports would otherwise show a slice barely wider than
+    // the panther. Pull the camera back until the arena is readable again, and
+    // scale the look-ahead so the tail never leaves the frame.
+    const aspect = Math.max(0.35, this.camera.aspect || 1.6);
+    const tanHalf = Math.tan((this.camera.fov * Math.PI) / 360);
+    this.camDist = Math.min(13.5, Math.max(8.15, 3.3 / (tanHalf * aspect)));
+    const halfW = tanHalf * this.camDist * aspect;
+    const lead = Math.min(1.15, halfW * 0.28);
+    let desiredX = hero.x + lead;
     const bounds = this.level.getCameraBounds();
     if (bounds.max > bounds.min) {
       desiredX = A.clamp(desiredX, bounds.min, bounds.max);
@@ -787,12 +961,9 @@
     } else {
       this.camX = A.damp(this.camX, desiredX, 5.4, dt);
     }
-    const lookZ = 0.2;
-    this.camera.position.set(this.camX + this._shakeX, 2.62 + this._shakeY, 8.35);
-    this.camera.lookAt(this.camX + 0.35, 0.86, lookZ);
-    if (this._shakeX !== 0 || this._shakeY !== 0) {
-      this.camera.rotation.z += this._shakeX * 0.012;
-    }
+    const lift = this.camDist / 8.15;
+    this.camera.position.set(this.camX + this._shakeX, 2.62 * lift + this._shakeY, this.camDist + 0.2);
+    this.camera.lookAt(this.camX + 0.35 * lead / 1.15, 0.86 * lift, 0.2);
   };
 
   Game.prototype.updateLightsFollow = function () {

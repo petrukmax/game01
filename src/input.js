@@ -16,6 +16,7 @@
     run: ["ShiftLeft", "ShiftRight"],
     pause: ["Escape", "KeyP"],
     mute: ["KeyM"],
+    fullscreen: ["KeyF"],
     confirm: ["Enter", "NumpadEnter"]
   };
 

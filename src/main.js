@@ -97,19 +97,39 @@
 
     input.bindTouch(document.getElementById("touch-controls"));
 
-    // The green play button and the Enter shortcut share one entry point, so
-    // both play the origin trailer before the first district.
+    let storedVolume = null;
+    try {
+      storedVolume = localStorage.getItem("nightfang-volume");
+    } catch (err) { /* private mode */ }
+    if (storedVolume !== null && storedVolume !== "") {
+      const v = Math.max(0, Math.min(1, Number(storedVolume)));
+      if (isFinite(v)) {
+        audio.setVolume(v);
+        ui.setVolume(v);
+      }
+    } else {
+      ui.setVolume(audio.volume);
+    }
+    ui.setDifficulty(game.difficulty);
+
+    // The green play button and the Enter shortcut share one entry point. The
+    // 10-second teaser is shown once; afterwards the game starts immediately.
     const startExperience = function () {
       audio.ensure();
-      if (NF.Trailer && NF.Trailer.play) {
+      const playTrailer = NF.Trailer && NF.Trailer.play && NF.Trailer.shouldPlay && NF.Trailer.shouldPlay();
+      if (playTrailer) {
         game.state = "trailer";
         game.ui.hideMenu();
+        game.ui.hideWave();
+        game.ui.setTouchVisible(false);
         try {
           NF.Trailer.play(function () {
+            game.ui.setTouchVisible(true);
             game.startNewGame();
           });
         } catch (err) {
           console.error("[Nightfang] Trailer failed, starting the game", err);
+          game.ui.setTouchVisible(true);
           game.startNewGame();
         }
       } else {
@@ -120,6 +140,28 @@
 
     ui.on("start", function () {
       startExperience();
+    });
+    ui.on("difficulty", function (name) {
+      game.setDifficulty(name, false);
+    });
+    ui.on("volume", function (value) {
+      audio.setVolume(value);
+      try {
+        localStorage.setItem("nightfang-volume", String(value));
+      } catch (err) { /* private mode */ }
+    });
+    ui.on("fullscreen", function () {
+      game.toggleFullscreen();
+    });
+    ui.on("intro", function () {
+      if (!NF.Trailer || !NF.Trailer.play) return;
+      audio.ensure();
+      game.state = "trailer";
+      game.ui.hideMenu();
+      NF.Trailer.play(function () {
+        game.state = "menu";
+        game.showMenu();
+      }, true);
     });
     ui.on("resume", function () {
       game.resume();
@@ -165,6 +207,19 @@
       camera.updateProjectionMatrix();
     });
 
+    const syncFullscreen = function () {
+      const active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      ui.setFullscreenState(active);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h, false);
+      camera.aspect = w / Math.max(1, h);
+      camera.updateProjectionMatrix();
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+
     document.addEventListener("visibilitychange", function () {
       if (document.hidden && game.state === "playing") {
         game.togglePause();
@@ -180,6 +235,9 @@
 
     if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
       ui.setTouchVisible(true);
+      document.body.classList.add("touch");
+    } else {
+      document.body.classList.add("mouse");
     }
 
     if (NF.I18n && NF.I18n.onChange) {

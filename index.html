@@ -1,12 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08090c" />
-  <title>NIGHTFANG — Black Panther Beat 'Em Up</title>
+  <title>NIGHTFANG &mdash; Black Panther Beat 'Em Up</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="stylesheet" href="styles.css?v=45" />
+  <link rel="stylesheet" href="styles.css?v=58" />
 </head>
 <body>
   <div id="app">
@@ -17,7 +17,7 @@
 
     <div id="loading-screen" class="screen visible">
       <div class="loading-mark">NF</div>
-      <div class="loading-text" data-i18n="loading.text">WAKING THE PANTHER…</div>
+      <div class="loading-text" data-i18n="loading.text">WAKING THE PANTHER&hellip;</div>
     </div>
 
     <div id="menu-screen" class="screen overlay hidden">
@@ -41,20 +41,45 @@
 
         <h1 class="game-title">NIGHT<span>FANG</span></h1>
         <p class="tagline" data-i18n="menu.tagline">One panther. Three districts. No mercy.</p>
+        <p class="rotate-note" data-i18n="menu.rotate">Best played in landscape</p>
 
         <div class="menu-actions">
           <button id="btn-start" class="btn btn-primary" type="button" data-i18n="menu.start">BEGIN THE HUNT</button>
           <button id="btn-menu-controls" class="btn btn-ghost" type="button" data-i18n="menu.controls">CONTROLS</button>
+          <button id="btn-menu-settings" class="btn btn-ghost" type="button" data-i18n="menu.settings">SETTINGS</button>
+        </div>
+
+        <div id="menu-settings" class="settings-card hidden">
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="menu.difficulty">DIFFICULTY</span>
+            <div class="seg" id="diff-switch" role="group">
+              <button class="seg-btn" type="button" data-diff="easy" data-i18n="diff.easy">EASY</button>
+              <button class="seg-btn" type="button" data-diff="normal" data-i18n="diff.normal">NORMAL</button>
+              <button class="seg-btn" type="button" data-diff="hard" data-i18n="diff.hard">HARD</button>
+            </div>
+          </div>
+          <p id="diff-note" class="settings-note"></p>
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="menu.volume">VOLUME</span>
+            <input id="volume-range" class="range" type="range" min="0" max="100" value="42" aria-label="Volume" />
+          </div>
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="menu.fullscreen">FULLSCREEN</span>
+            <button id="btn-settings-fullscreen" class="btn btn-small" type="button" data-i18n="fullscreen.enter">FULLSCREEN</button>
+          </div>
+          <div class="settings-row">
+            <button id="btn-intro" class="btn btn-ghost btn-small" type="button" data-i18n="menu.intro">WATCH INTRO</button>
+          </div>
         </div>
 
         <div id="menu-controls" class="controls-card hidden">
           <div class="control-row"><span class="keys"><kbd>A</kbd><kbd>D</kbd></span><span data-i18n="ctrl.move">Move / stalk</span></div>
           <div class="control-row"><span class="keys"><kbd>W</kbd><kbd>S</kbd></span><span data-i18n="ctrl.depth">Move in depth</span></div>
-          <div class="control-row"><span class="keys"><kbd>SPACE</kbd></span><span data-i18n="ctrl.jump">Jump · press again in air for a double jump</span></div>
+          <div class="control-row"><span class="keys"><kbd>SPACE</kbd></span><span data-i18n="ctrl.jump">Jump &middot; press again in air for a double jump</span></div>
           <div class="control-row"><span class="keys"><kbd>J</kbd></span><span data-i18n="ctrl.swipe">Forepaw swipe combo</span></div>
           <div class="control-row"><span class="keys"><kbd>K</kbd></span><span data-i18n="ctrl.bite">Bite</span></div>
           <div class="control-row"><span class="keys"><kbd>L</kbd></span><span data-i18n="ctrl.pounce">Pounce (special)</span></div>
-          <div class="control-row"><span class="keys"><kbd>I</kbd></span><span data-i18n="ctrl.grab">Grab / throw a stunned enemy · cooldown bar</span></div>
+          <div class="control-row"><span class="keys"><kbd>I</kbd></span><span data-i18n="ctrl.grab">Grab / throw a stunned enemy &middot; cooldown bar</span></div>
           <div class="control-row"><span class="keys"><kbd>SHIFT</kbd></span><span data-i18n="ctrl.run">Run</span></div>
           <div class="control-row"><span class="keys"><kbd>P</kbd><kbd>ESC</kbd></span><span data-i18n="ctrl.pause">Pause</span></div>
           <div class="control-row"><span class="keys"><kbd>M</kbd></span><span data-i18n="ctrl.mute">Mute sound</span></div>
@@ -91,11 +116,19 @@
       </div>
 
       <div class="hud-center">
-        <div id="level-label" class="level-label">DISTRICT 1 · NEON QUAY</div>
+        <div id="wave-chip" class="wave-chip hidden">WAVE 1/4</div>
+        <div id="level-label" class="level-label">DISTRICT 1 &mdash; NEON QUAY</div>
         <div id="objective" class="objective">STALK ALONG THE QUAY</div>
       </div>
 
       <div class="hud-right">
+        <div class="hud-tools">
+          <button id="btn-fullscreen" class="icon-btn" type="button" data-i18n-aria="menu.fullscreen" title="Fullscreen" aria-label="Fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
         <div class="stat"><span class="stat-label" data-i18n="hud.score">SCORE</span><span id="score-text" class="stat-value">0</span></div>
         <div class="stat"><span class="stat-label" data-i18n="hud.coins">COINS</span><span id="coin-text" class="stat-value gold">0</span></div>
         <div class="meters">
@@ -119,13 +152,13 @@
         <span class="combo-label" data-i18n="hud.combo">HIT COMBO</span>
       </div>
 
-      <div id="grab-hint" class="grab-hint hidden">I · <span data-i18n="hud.grabHint">GRAB STAGGERED FOE</span></div>
+      <div id="grab-hint" class="grab-hint hidden">I &middot; <span data-i18n="hud.grabHint">GRAB STAGGERED FOE</span></div>
 
       <div id="hint-bar" class="hint-bar">
         <span><kbd>J</kbd> <span data-i18n="hud.swipe">SWIPE</span></span>
         <span><kbd>K</kbd> <span data-i18n="hud.bite">BITE</span></span>
         <span><kbd>L</kbd> <span data-i18n="hud.pounceShort">POUNCE</span></span>
-        <span><kbd>SPACE</kbd> <span data-i18n="hud.jumpShort">JUMP ×2</span></span>
+        <span><kbd>SPACE</kbd> <span data-i18n="hud.jumpShort">JUMP ?2</span></span>
         <span><kbd>I</kbd> <span data-i18n="hud.grabShort">GRAB STAGGERED</span></span>
       </div>
     </div>
@@ -146,7 +179,11 @@
           <button id="btn-pause-restart" class="btn btn-ghost" type="button" data-i18n="pause.restart">RESTART LEVEL</button>
           <button id="btn-pause-menu" class="btn btn-ghost" type="button" data-i18n="pause.menu">MAIN MENU</button>
         </div>
-        <div class="modal-foot"><span data-i18n="pause.sound">SOUND:</span> <span id="pause-mute-state">ON</span> · <span data-i18n="pause.toggle">M TO TOGGLE</span></div>
+        <div class="modal-foot"><span data-i18n="pause.sound">SOUND:</span> <span id="pause-mute-state">ON</span> &middot; <span data-i18n="pause.toggle">M TO TOGGLE</span></div>
+        <div class="pause-volume">
+          <span class="settings-label" data-i18n="menu.volume">VOLUME</span>
+          <input id="pause-volume-range" class="range" type="range" min="0" max="100" value="42" aria-label="Volume" />
+        </div>
       </div>
     </div>
 
@@ -154,7 +191,7 @@
       <div class="modal">
         <div class="modal-kicker danger" data-i18n="gameover.kicker">THE NIGHT CLAIMS YOU</div>
         <h2 data-i18n="gameover.title">GAME OVER</h2>
-        <p class="modal-copy"><span data-i18n="gameover.final">Final score:</span> <strong id="gameover-score">0</strong> · <span data-i18n="gameover.coins">Coins:</span> <strong id="gameover-coins">0</strong></p>
+        <p class="modal-copy"><span data-i18n="gameover.final">Final score:</span> <strong id="gameover-score">0</strong> &middot; <span data-i18n="gameover.coins">Coins:</span> <strong id="gameover-coins">0</strong></p>
         <div class="modal-actions">
           <button id="btn-retry" class="btn btn-primary" type="button" data-i18n="gameover.retry">RISE AGAIN</button>
           <button id="btn-gameover-menu" class="btn btn-ghost" type="button" data-i18n="gameover.menu">MAIN MENU</button>
@@ -166,7 +203,7 @@
       <div class="modal success">
         <div class="modal-kicker" data-i18n="clear.kicker">DISTRICT CLEARED</div>
         <h2 data-i18n="clear.title">LEVEL COMPLETE</h2>
-        <p class="modal-copy" id="levelclear-copy">Score: 0 · Coins: 0</p>
+        <p class="modal-copy" id="levelclear-copy">Score: 0 &middot; Coins: 0</p>
         <div class="modal-actions">
           <button id="btn-continue" class="btn btn-primary" type="button" data-i18n="clear.continue">ENTER THE NEXT DISTRICT</button>
         </div>
@@ -178,7 +215,7 @@
         <div class="modal-kicker" data-i18n="victory.kicker">THE CITY BREATHES</div>
         <h2 data-i18n="victory.title">VICTORY</h2>
         <p class="modal-copy" data-i18n="victory.copy">Every district is free. The panther fades into the dark.</p>
-        <p class="modal-copy"><span data-i18n="victory.final">Final score:</span> <strong id="victory-score">0</strong> · <span data-i18n="victory.coins">Coins:</span> <strong id="victory-coins">0</strong></p>
+        <p class="modal-copy"><span data-i18n="victory.final">Final score:</span> <strong id="victory-score">0</strong> &middot; <span data-i18n="victory.coins">Coins:</span> <strong id="victory-coins">0</strong></p>
         <div class="modal-actions">
           <button id="btn-play-again" class="btn btn-primary" type="button" data-i18n="victory.again">HUNT AGAIN</button>
           <button id="btn-victory-menu" class="btn btn-ghost" type="button" data-i18n="victory.menu">MAIN MENU</button>
@@ -188,10 +225,10 @@
 
     <div id="touch-controls" aria-hidden="false">
       <div class="touch-dpad">
-        <button class="touch-btn t-up" data-action="up" type="button" data-i18n-aria="touch.up" aria-label="Move up">▲</button>
-        <button class="touch-btn t-left" data-action="left" type="button" data-i18n-aria="touch.left" aria-label="Move left">◀</button>
-        <button class="touch-btn t-right" data-action="right" type="button" data-i18n-aria="touch.right" aria-label="Move right">▶</button>
-        <button class="touch-btn t-down" data-action="down" type="button" data-i18n-aria="touch.down" aria-label="Move down">▼</button>
+        <button class="touch-btn t-up" data-action="up" type="button" data-i18n-aria="touch.up" aria-label="Move up">&#8593;</button>
+        <button class="touch-btn t-left" data-action="left" type="button" data-i18n-aria="touch.left" aria-label="Move left">&#8592;</button>
+        <button class="touch-btn t-right" data-action="right" type="button" data-i18n-aria="touch.right" aria-label="Move right">&#8594;</button>
+        <button class="touch-btn t-down" data-action="down" type="button" data-i18n-aria="touch.down" aria-label="Move down">&#8595;</button>
       </div>
       <div class="touch-actions">
         <button class="touch-btn t-small" data-action="jump" type="button" data-i18n="touch.jump">JUMP</button>
@@ -200,7 +237,7 @@
         <button class="touch-btn" data-action="bite" type="button" data-i18n="touch.bite">BITE</button>
         <button class="touch-btn t-special" data-action="pounce" type="button" data-i18n="touch.pounce">POUNCE</button>
       </div>
-      <button id="touch-pause" class="touch-btn t-pause" type="button" data-i18n-aria="touch.pause" aria-label="Pause">❚❚</button>
+      <button id="touch-pause" class="touch-btn t-pause" type="button" data-i18n-aria="touch.pause" aria-label="Pause">&#10073;&#10073;</button>
     </div>
 
     <div id="fatal-error" class="screen overlay hidden">
@@ -235,27 +272,27 @@
           <div class="trailer-title-sub">NIGHTFANG</div>
         </div>
 
-        <button id="trailer-skip" class="trailer-skip" type="button"><span data-i18n="trailer.skip">SKIP</span> <span aria-hidden="true">▸</span></button>
+        <button id="trailer-skip" class="trailer-skip" type="button"><span data-i18n="trailer.skip">SKIP</span> <span aria-hidden="true">&#187;</span></button>
         <div class="trailer-progress" aria-hidden="true"><div id="trailer-progress-fill"></div></div>
       </div>
     </div>
   </div>
 
   <script src="vendor/three.min.js"></script>
-  <script src="vendor/GLTFLoader.js?v=45"></script>
-  <script src="vendor/panther-model.js?v=45"></script>
-  <script src="src/i18n.js?v=45"></script>
-  <script src="src/assets.js?v=45"></script>
-  <script src="src/input.js?v=45"></script>
-  <script src="src/audio.js?v=45"></script>
-  <script src="src/ui.js?v=45"></script>
-  <script src="src/particles.js?v=45"></script>
-  <script src="src/panther.js?v=45"></script>
-  <script src="src/enemy.js?v=45"></script>
-  <script src="src/combat.js?v=45"></script>
-  <script src="src/level.js?v=45"></script>
-  <script src="src/game.js?v=45"></script>
-  <script src="src/trailer.js?v=45"></script>
-  <script src="src/main.js?v=45"></script>
+  <script src="vendor/GLTFLoader.js?v=58"></script>
+  <script src="vendor/panther-model.js?v=58"></script>
+  <script src="src/i18n.js?v=58"></script>
+  <script src="src/assets.js?v=58"></script>
+  <script src="src/input.js?v=58"></script>
+  <script src="src/audio.js?v=58"></script>
+  <script src="src/ui.js?v=58"></script>
+  <script src="src/particles.js?v=58"></script>
+  <script src="src/panther.js?v=58"></script>
+  <script src="src/enemy.js?v=58"></script>
+  <script src="src/combat.js?v=58"></script>
+  <script src="src/level.js?v=58"></script>
+  <script src="src/game.js?v=58"></script>
+  <script src="src/trailer.js?v=58"></script>
+  <script src="src/main.js?v=58"></script>
 </body>
 </html>

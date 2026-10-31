@@ -11,6 +11,12 @@
     this.muted = false;
     this.volume = 0.42;
     this.enabled = false;
+    this.musicGain = null;
+    this.musicTimer = null;
+    this.musicStep = 0;
+    this.musicTheme = "";
+    this.musicNext = 0;
+    this.musicIntensity = 0;
   }
 
   AudioSystem.prototype.ensure = function () {
@@ -34,6 +40,9 @@
       this.comp.release.value = 0.22;
       this.master.connect(this.comp);
       this.comp.connect(this.ctx.destination);
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0.5;
+      this.musicGain.connect(this.master);
       const len = Math.floor(this.ctx.sampleRate * 1.2);
       const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const data = buf.getChannelData(0);
@@ -63,6 +72,202 @@
 
   AudioSystem.prototype.toggleMute = function () {
     return this.setMuted(!this.muted);
+  };
+
+  AudioSystem.prototype.setVolume = function (value) {
+    const v = Math.max(0, Math.min(1, Number(value) || 0));
+    this.volume = v;
+    if (this.master && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(this.master.gain.value, now);
+      this.master.gain.linearRampToValueAtTime(this.muted ? 0 : this.volume, now + 0.08);
+    }
+    return this.volume;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Procedural score. No audio files: a slow minor-pentatonic pulse, a low pad
+  // and sparse percussion, all scheduled a fraction of a second ahead.
+  // ---------------------------------------------------------------------------
+
+  const MUSIC_THEMES = {
+    menu:    { root: 55,  scale: [0, 3, 5, 7, 10], step: 0.32, bass: [0, 0, 4, 0, 2, 0, 3, 0], lead: [7, 4, 5, 2] },
+    street:  { root: 55,  scale: [0, 3, 5, 7, 10], step: 0.28, bass: [0, 0, 3, 0, 4, 0, 3, 2], lead: [5, 7, 4, 2] },
+    dojo:    { root: 58.27, scale: [0, 2, 3, 7, 10], step: 0.3, bass: [0, 2, 0, 4, 0, 3, 2, 0], lead: [4, 2, 3, 0] },
+    foundry: { root: 49,  scale: [0, 1, 5, 6, 10], step: 0.26, bass: [0, 0, 1, 0, 3, 1, 0, 4], lead: [3, 4, 1, 0] }
+  };
+
+  function midiRatio(semitones) {
+    return Math.pow(2, semitones / 12);
+  }
+
+  AudioSystem.prototype.musicTone = function (freq, at, dur, type, vol) {
+    if (!this.musicGain || !this.ctx) return;
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.setValueAtTime(Math.max(20, freq), at);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), at + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(gain);
+    gain.connect(this.musicGain);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  };
+
+  AudioSystem.prototype.musicNoise = function (at, dur, vol, freq) {
+    if (!this.musicGain || !this.ctx || !this.noiseBuffer) return;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = freq || 5200;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), at + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicGain);
+    src.start(at);
+    src.stop(at + dur + 0.02);
+  };
+
+  AudioSystem.prototype.startMusic = function (theme) {
+    this.ensure();
+    if (!this.enabled || !this.ctx) return;
+    const key = MUSIC_THEMES[theme] ? theme : "street";
+    if (this.musicTheme === key && this.musicTimer) return;
+    this.stopMusic();
+    this.musicTheme = key;
+    this.musicStep = 0;
+    this.musicNext = this.ctx.currentTime + 0.12;
+    if (this.musicGain) {
+      this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+      this.musicGain.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 1.2);
+    }
+    const self = this;
+    this.musicTimer = setInterval(function () { self.scheduleMusic(); }, 70);
+    this.scheduleMusic();
+  };
+
+  AudioSystem.prototype.scheduleMusic = function () {
+    if (!this.enabled || !this.ctx || !this.musicTheme) return;
+    const theme = MUSIC_THEMES[this.musicTheme];
+    if (!theme) return;
+    const horizon = this.ctx.currentTime + 0.3;
+    while (this.musicNext < horizon) {
+      this.playMusicStep(theme, this.musicStep, this.musicNext);
+      this.musicNext += theme.step;
+      this.musicStep++;
+    }
+  };
+
+  AudioSystem.prototype.playMusicStep = function (theme, step, at) {
+    const bar = step % 16;
+    const beat = step % 8;
+    const intensity = this.musicIntensity;
+
+    if (bar % 4 === 0) {
+      const semi = theme.bass[beat % theme.bass.length];
+      const freq = theme.root * midiRatio(theme.scale[semi % theme.scale.length] + (semi >= theme.scale.length ? 12 : 0));
+      this.musicTone(freq, at, theme.step * 3.4, "triangle", 0.075);
+      this.musicTone(freq * 2, at, theme.step * 1.2, "sine", 0.022);
+    }
+
+    if (bar === 0 || bar === 8) {
+      const root = theme.root * 2;
+      const chord = [0, theme.scale[3] || 7, 12];
+      for (const semi of chord) {
+        this.musicTone(root * midiRatio(semi), at, theme.step * 7.4, "sine", 0.028 + intensity * 0.012);
+      }
+    }
+
+    if (bar % 2 === 0) {
+      this.musicNoise(at, 0.05, 0.012 + intensity * 0.008, 6800);
+    }
+    if (intensity > 0.35 && bar % 4 === 2) {
+      this.musicNoise(at, 0.09, 0.02, 3200);
+    }
+
+    if (bar === 2 || bar === 6 || bar === 10 || bar === 14) {
+      if (Math.random() < 0.55 + intensity * 0.2) {
+        const semi = theme.lead[(step >> 2) % theme.lead.length];
+        const freq = theme.root * 4 * midiRatio(theme.scale[semi % theme.scale.length]);
+        this.musicTone(freq, at, theme.step * 1.6, "triangle", 0.022 + intensity * 0.01);
+      }
+    }
+  };
+
+  AudioSystem.prototype.setMusicIntensity = function (value) {
+    this.musicIntensity = Math.max(0, Math.min(1, value));
+  };
+
+  AudioSystem.prototype.stopMusic = function () {
+    if (this.musicTimer) {
+      clearInterval(this.musicTimer);
+      this.musicTimer = null;
+    }
+    this.musicTheme = "";
+    if (this.musicGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.musicGain.gain.cancelScheduledValues(now);
+      this.musicGain.gain.setValueAtTime(Math.max(0.0001, this.musicGain.gain.value), now);
+      this.musicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    }
+  };
+
+  AudioSystem.prototype.startRumble = function () {
+    this.ensure();
+    if (!this.enabled || !this.ctx || !this.rumble) {
+      if (this.rumble) return;
+      if (!this.enabled || !this.ctx) return;
+    }
+    if (this.rumble) return;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    src.loop = true;
+    const low = ctx.createBiquadFilter();
+    low.type = "lowpass";
+    low.frequency.value = 900;
+    low.Q.value = 0.4;
+    const high = ctx.createBiquadFilter();
+    high.type = "highpass";
+    high.frequency.value = 90;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0001;
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    src.connect(low);
+    low.connect(high);
+    high.connect(gain);
+    if (pan) {
+      gain.connect(pan);
+      pan.connect(this.master);
+    } else {
+      gain.connect(this.master);
+    }
+    src.start();
+    gain.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 0.9);
+    this.rumble = { src: src, gain: gain };
+  };
+
+  AudioSystem.prototype.stopRumble = function () {
+    const r = this.rumble;
+    this.rumble = null;
+    if (!r || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      r.gain.gain.cancelScheduledValues(now);
+      r.gain.gain.setValueAtTime(Math.max(0.0001, r.gain.gain.value), now);
+      r.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      r.src.stop(now + 0.45);
+    } catch (err) { /* already stopped */ }
   };
 
   AudioSystem.prototype.tone = function (opts) {

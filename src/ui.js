@@ -28,6 +28,7 @@
       coinText: $("coin-text"),
       levelLabel: $("level-label"),
       objective: $("objective"),
+      waveChip: $("wave-chip"),
       bossWrap: $("boss-wrap"),
       bossName: $("boss-name"),
       bossFill: $("boss-fill"),
@@ -50,7 +51,16 @@
       levelclearCopy: $("levelclear-copy"),
       victoryScore: $("victory-score"),
       victoryCoins: $("victory-coins"),
-      fatalCopy: $("fatal-copy")
+      fatalCopy: $("fatal-copy"),
+      settings: $("menu-settings"),
+      btnMenuSettings: $("btn-menu-settings"),
+      diffSwitch: $("diff-switch"),
+      diffNote: $("diff-note"),
+      volumeRange: $("volume-range"),
+      pauseVolumeRange: $("pause-volume-range"),
+      btnFullscreen: $("btn-fullscreen"),
+      btnSettingsFullscreen: $("btn-settings-fullscreen"),
+      btnIntro: $("btn-intro")
     };
     this.callbacks = {};
     this.toastTimer = null;
@@ -73,6 +83,17 @@
     on("btn-menu-controls", "click", function () {
       self.refs.menuControls.classList.toggle("hidden");
     });
+    on("btn-menu-settings", "click", function () {
+      self.refs.settings.classList.toggle("hidden");
+      if (!self.refs.settings.classList.contains("hidden") && self.refs.settings.scrollIntoView) {
+        self.refs.settings.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
+    on("btn-intro", "click", function () { if (self.callbacks.intro) self.callbacks.intro(); });
+    on("btn-fullscreen", "click", function () { if (self.callbacks.fullscreen) self.callbacks.fullscreen(); });
+    on("btn-settings-fullscreen", "click", function () {
+      if (self.callbacks.fullscreen) self.callbacks.fullscreen();
+    });
     on("btn-resume", "click", function () { if (self.callbacks.resume) self.callbacks.resume(); });
     on("btn-pause-restart", "click", function () { if (self.callbacks.restart) self.callbacks.restart(); });
     on("btn-pause-menu", "click", function () { if (self.callbacks.menu) self.callbacks.menu(); });
@@ -89,6 +110,26 @@
         if (lang) I18n.setLang(lang);
       });
     });
+
+    if (this.refs.diffSwitch) {
+      this.refs.diffSwitch.querySelectorAll("[data-diff]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const diff = btn.getAttribute("data-diff");
+          if (diff && self.callbacks.difficulty) self.callbacks.difficulty(diff);
+        });
+      });
+    }
+
+    function bindVolume(el) {
+      if (!el) return;
+      el.addEventListener("input", function () {
+        const value = Number(el.value) / 100;
+        self.setVolume(value);
+        if (self.callbacks.volume) self.callbacks.volume(value);
+      });
+    }
+    bindVolume(this.refs.volumeRange);
+    bindVolume(this.refs.pauseVolumeRange);
   };
 
   UI.prototype.on = function (name, fn) {
@@ -162,6 +203,61 @@
     this.refs.objective.textContent = text;
   };
 
+  UI.prototype.setWave = function (n, total) {
+    const el = this.refs.waveChip;
+    if (!el) return;
+    if (!n) {
+      el.classList.add("hidden");
+      return;
+    }
+    el.textContent = total
+      ? I18n.t("hud.wave", { n: n, total: total })
+      : I18n.t("hud.waveShort", { n: n });
+    el.classList.remove("hidden");
+  };
+
+  UI.prototype.hideWave = function () {
+    if (this.refs.waveChip) this.refs.waveChip.classList.add("hidden");
+  };
+
+  UI.prototype.setDifficulty = function (name, note) {
+    if (this.refs.diffSwitch) {
+      this.refs.diffSwitch.querySelectorAll("[data-diff]").forEach(function (btn) {
+        btn.classList.toggle("active", btn.getAttribute("data-diff") === name);
+      });
+    }
+    if (this.refs.diffNote) {
+      if (note) {
+        this.refs.diffNote.textContent = note;
+      } else if (NF.game && NF.game.difficulties && NF.game.difficulties[name]) {
+        this.refs.diffNote.textContent = I18n.t(NF.game.difficulties[name].noteKey);
+      }
+    }
+  };
+
+  UI.prototype.setVolume = function (value) {
+    const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
+    if (this.refs.volumeRange) {
+      this.refs.volumeRange.value = String(pct);
+      this.refs.volumeRange.style.setProperty("--range-pct", pct + "%");
+    }
+    if (this.refs.pauseVolumeRange) {
+      this.refs.pauseVolumeRange.value = String(pct);
+      this.refs.pauseVolumeRange.style.setProperty("--range-pct", pct + "%");
+    }
+  };
+
+  UI.prototype.setFullscreenState = function (active) {
+    const key = active ? "fullscreen.exit" : "fullscreen.enter";
+    if (this.refs.btnSettingsFullscreen) {
+      this.refs.btnSettingsFullscreen.textContent = I18n.t(key);
+    }
+    if (this.refs.btnFullscreen) {
+      this.refs.btnFullscreen.setAttribute("aria-label", I18n.t(key));
+      this.refs.btnFullscreen.title = I18n.t(key);
+    }
+  };
+
   UI.prototype.showBoss = function (name, health, max) {
     this.bossVisible = true;
     this.refs.bossWrap.classList.remove("hidden");
@@ -211,8 +307,10 @@
   UI.prototype.setJump = function (stamina, max) {
     const pct = Math.max(0, Math.min(1, stamina / Math.max(1, max)));
     this.refs.jumpFill.style.width = (pct * 100).toFixed(1) + "%";
-    const charges = Math.floor(stamina / 50);
-    this.refs.jumpText.textContent = charges + " / 2";
+    const cost = (NF.game && NF.game.hero && NF.game.hero.jumpCost) || max / 2;
+    const charges = Math.floor(stamina / Math.max(1, cost));
+    const total = Math.max(1, Math.round(max / Math.max(1, cost)));
+    this.refs.jumpText.textContent = charges + " / " + total;
     this.refs.jumpText.classList.toggle("cooling", charges <= 0);
   };
 
@@ -301,6 +399,10 @@
     if (!this.refs.specialText.classList.contains("cooling")) this.refs.specialText.textContent = ready;
     if (!this.refs.grabText.classList.contains("cooling")) this.refs.grabText.textContent = ready;
     this.setMuteState(NF.game && NF.game.audio ? NF.game.audio.muted : false);
+    if (NF.game && NF.game.difficulties && NF.game.difficulty) {
+      const mods = NF.game.difficulties[NF.game.difficulty];
+      if (mods) this.setDifficulty(NF.game.difficulty, I18n.t(mods.noteKey));
+    }
   };
 
   UI.prototype.showFatal = function (message) {

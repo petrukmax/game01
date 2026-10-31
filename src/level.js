@@ -25,10 +25,10 @@
       rimColor: 0x7cc6ff,
       accent: 0xc8ff55,
       waves: [
-        { trigger: 13, arena: [9, 22], spawns: ["grunt", "grunt"] },
-        { trigger: 28, arena: [24, 38], spawns: ["grunt", "agile", "grunt"] },
-        { trigger: 45, arena: [41, 56], spawns: ["brute", "grunt", "agile"] },
-        { trigger: 63, arena: [59, 76], boss: true, spawns: ["agile", "agile"] }
+        { trigger: 13, arena: [9, 22], spawns: ["grunt", "grunt", "grunt", "agile"] },
+        { trigger: 28, arena: [24, 38], spawns: ["grunt", "agile", "grunt", "agile"] },
+        { trigger: 45, arena: [41, 56], spawns: ["brute", "grunt", "agile", "grunt", "agile"] },
+        { trigger: 63, arena: [59, 76], boss: true, spawns: ["agile", "agile", "grunt"] }
       ]
     },
     {
@@ -49,10 +49,10 @@
       rimColor: 0x9fd4e6,
       accent: 0x54e0b8,
       waves: [
-        { trigger: 12, arena: [8, 21], spawns: ["agile", "agile"] },
-        { trigger: 27, arena: [23, 38], spawns: ["agile", "grunt", "agile"] },
-        { trigger: 43, arena: [39, 53], spawns: ["brute", "agile", "grunt"] },
-        { trigger: 60, arena: [56, 71], boss: true, spawns: ["agile", "grunt"] }
+        { trigger: 12, arena: [8, 21], spawns: ["agile", "agile", "grunt", "agile"] },
+        { trigger: 27, arena: [23, 38], spawns: ["agile", "grunt", "agile", "grunt", "agile"] },
+        { trigger: 43, arena: [39, 53], spawns: ["brute", "agile", "grunt", "agile"] },
+        { trigger: 60, arena: [56, 71], boss: true, spawns: ["agile", "grunt", "agile"] }
       ]
     },
     {
@@ -73,9 +73,9 @@
       rimColor: 0x8fb6dc,
       accent: 0xff7a2f,
       waves: [
-        { trigger: 13, arena: [9, 23], spawns: ["grunt", "brute"] },
-        { trigger: 29, arena: [25, 40], spawns: ["brute", "grunt", "agile"] },
-        { trigger: 46, arena: [42, 58], spawns: ["agile", "agile", "brute"] },
+        { trigger: 13, arena: [9, 23], spawns: ["grunt", "brute", "grunt", "agile"] },
+        { trigger: 29, arena: [25, 40], spawns: ["brute", "grunt", "agile", "grunt", "agile"] },
+        { trigger: 46, arena: [42, 58], spawns: ["agile", "agile", "brute", "grunt", "brute"] },
         { trigger: 69, arena: [65, 84], boss: true, spawns: ["grunt", "agile", "grunt"] }
       ]
     }
@@ -107,6 +107,9 @@
     this.currentWave = null;
     this.waveEnemies = [];
     this.waveSerial = 0;
+    this.spawnQueue = [];
+    this.spawnTimer = 0;
+    this.maxAlive = 3;
 
     this.bossEnemy = null;
     this.bossSpawned = false;
@@ -159,6 +162,9 @@
     if (this.game.ui) {
       this.game.ui.setLevel(this.index, this.name);
       this.game.ui.setObjective(this.objective);
+      if (this.waveActive && this.game.ui.setWave) {
+        this.game.ui.setWave(this.waveIndex + 1, this.waves.length);
+      }
     }
   };
 
@@ -1582,6 +1588,25 @@
     return enemy;
   };
 
+  Level.prototype.aliveInWave = function () {
+    let alive = 0;
+    for (const e of this.waveEnemies) {
+      if (e && !e.dead) alive++;
+    }
+    return alive;
+  };
+
+  Level.prototype.spawnFromQueue = function (limit) {
+    let spawned = 0;
+    const room = Math.max(0, this.maxAlive - this.aliveInWave());
+    while (this.spawnQueue.length && spawned < limit && spawned < room) {
+      const next = this.spawnQueue.shift();
+      this.spawnEnemy(next.type, next.x, next.z, this.waveSerial, next.bossIndex);
+      spawned++;
+    }
+    this.spawnTimer = 0.55;
+  };
+
   Level.prototype.startWave = function () {
     const wave = this.waves[this.waveIndex];
     if (!wave) return;
@@ -1589,42 +1614,59 @@
     this.currentWave = wave;
     this.waveSerial++;
     this.waveEnemies = [];
+    this.spawnQueue = [];
+    this.spawnTimer = 0;
     this.activeMinX = wave.arena[0];
     this.activeMaxX = wave.arena[1];
+    const mods = (this.game && typeof this.game.difficultyMods === "function")
+      ? this.game.difficultyMods()
+      : null;
+    this.maxAlive = (mods && mods.maxAlive) || 3;
 
     const hero = this.game.hero;
     const mid = (wave.arena[0] + wave.arena[1]) * 0.5;
     const fromRight = hero.x < mid;
     const spawns = wave.spawns || [];
-    const count = spawns.length + (wave.boss ? 1 : 0);
-    const zSlots = [-1.75, -0.6, 0.6, 1.75, 0];
-    let totalIndex = 0;
-    for (let i = 0; i < spawns.length; i++) {
-      const edgeX = fromRight ? wave.arena[1] - 1.4 - (i % 2) * 0.9 : wave.arena[0] + 1.4 + (i % 2) * 0.9;
-      const z = zSlots[(i + this.waveSerial) % zSlots.length] * 0.92;
-      this.spawnEnemy(spawns[i], edgeX, z, this.waveSerial, -1);
-      totalIndex++;
-    }
+    const zSlots = [-1.9, -0.7, 0.7, 1.9, 0, -1.3, 1.3];
+
+    // Boss enters first, alone, so the arena reads as a duel before the adds
+    // trickle in.
     if (wave.boss) {
       const edgeX = fromRight ? wave.arena[1] - 2.6 : wave.arena[0] + 2.6;
       this.spawnEnemy("boss", edgeX, 0, this.waveSerial, this.def.bossIndex);
     }
+
+    // Adds are queued and released as the fight thins out. Spawning on both
+    // sides stops the "single conga line" read of the old waves.
+    for (let i = 0; i < spawns.length; i++) {
+      const side = i % 2 === 0 ? 1 : -1;
+      let edgeX = side > 0
+        ? wave.arena[1] - 1.5 - (i % 3) * 0.4
+        : wave.arena[0] + 1.5 + (i % 3) * 0.4;
+      if (Math.abs(edgeX - hero.x) < 3.2) {
+        edgeX = side > 0 ? wave.arena[0] + 1.5 : wave.arena[1] - 1.5;
+      }
+      const z = zSlots[(i + this.waveSerial) % zSlots.length] * 0.94;
+      this.spawnQueue.push({ type: spawns[i], x: edgeX, z: z, bossIndex: -1 });
+    }
+    this.spawnFromQueue(2);
 
     if (wave.boss) {
       this.setObjective("obj.defeatBoss", { name: this.bossEnemy ? this.bossEnemy.label : I18n.t("boss.harbormaster") });
     } else {
       this.setObjective("obj.clearAmbush");
     }
+    if (this.game.ui.setWave) this.game.ui.setWave(this.waveIndex + 1, this.waves.length);
     this.game.ui.toast(I18n.t(wave.boss ? "toast.boss" : "toast.ambush"), 1400);
     this.game.audio.play("gate");
     this.game.shake(0.14, 0.2);
-    void count;
-    void totalIndex;
   };
 
   Level.prototype.completeWave = function () {
     const wave = this.currentWave;
     this.waveActive = false;
+    this.spawnQueue = [];
+    this.spawnTimer = 0;
     this.activeMinX = 0;
     this.activeMaxX = this.def.length;
     this.respawnX = Math.max(this.respawnX, Math.min(this.def.length - 8, wave.arena[1] - 2));
@@ -1648,6 +1690,7 @@
     }
 
     if (wave.boss) {
+      this.game.ui.hideWave();
       this.flagActive = true;
       this.waveIndex++;
       this.gateOpen = true;
@@ -1949,15 +1992,16 @@
     }
 
     if (this.waveActive) {
-      let alive = 0;
-      for (const e of this.waveEnemies) {
-        if (e && !e.dead) alive++;
+      if (this.spawnQueue.length) {
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0) this.spawnFromQueue(1);
       }
+      const alive = this.aliveInWave();
       const boss = this.bossEnemy;
       if (boss && !boss.dead) {
         this.game.ui.updateBoss(boss.health, boss.maxHealth);
       }
-      if (alive === 0) {
+      if (alive === 0 && this.spawnQueue.length === 0) {
         this.completeWave();
       }
     }
@@ -2042,10 +2086,19 @@
   };
 
   Level.prototype.getCameraBounds = function () {
+    const cam = this.game.camera;
+    let halfW = 5;
+    if (cam && cam.aspect) {
+      const dist = this.game.camDist || 8.15;
+      halfW = Math.tan((cam.fov * Math.PI) / 360) * dist * cam.aspect;
+    }
+    const pad = Math.max(1.0, Math.min(4.5, halfW - 1.35));
+    const min = Math.max(1.2, pad);
+    const max = Math.min(this.def.length - 1.2, this.def.length - pad);
     return {
-      min: this.activeMinX + 4.8,
-      max: this.activeMaxX - 4.8,
-      center: (this.activeMinX + this.activeMaxX) * 0.5
+      min: min,
+      max: max,
+      center: (min + max) * 0.5
     };
   };
 

@@ -224,6 +224,20 @@ button {
   letter-spacing: 0.04em;
 }
 
+.rotate-note {
+  display: none;
+  margin: -18px 0 22px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-note { display: block; }
+}
+
 .menu-actions,
 .modal-actions {
   display: flex;
@@ -337,6 +351,117 @@ kbd {
 
 .menu-footer strong {
   color: var(--gold);
+}
+
+/* Settings card inside the menu and the shared control styles. */
+
+.settings-card {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  background: rgba(8, 11, 14, 0.72);
+  text-align: left;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+}
+
+.settings-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.settings-note {
+  margin: -2px 0 2px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #8d99a4;
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+}
+
+.seg-btn {
+  padding: 6px 10px 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #9aa6b1;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--line);
+}
+
+.seg-btn:hover,
+.seg-btn:focus-visible {
+  color: #e8f2c0;
+  background: rgba(200, 255, 85, 0.08);
+}
+
+.seg-btn.active {
+  color: #0b0e09;
+  background: var(--acid);
+}
+
+.btn-small {
+  padding: 7px 12px 8px;
+  font-size: 9px;
+}
+
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 132px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--acid) 0%, var(--acid) var(--range-pct, 42%), rgba(255, 255, 255, 0.14) var(--range-pct, 42%), rgba(255, 255, 255, 0.14) 100%);
+  border: 0;
+  outline: none;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--acid);
+  box-shadow: 0 0 10px rgba(200, 255, 85, 0.5);
+}
+
+.range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--acid);
+  box-shadow: 0 0 10px rgba(200, 255, 85, 0.5);
+}
+
+.pause-volume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 /* Language switch — a compact piece of the menu's angular tech language. */
@@ -667,31 +792,81 @@ kbd {
   z-index: 10;
   pointer-events: none;
   padding: clamp(12px, 2.4vw, 28px);
+  padding-top: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-top));
+  padding-left: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-left));
+  padding-right: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-right));
 }
 
 .hud-left,
 .hud-center,
 .hud-right {
   position: absolute;
-  top: clamp(12px, 2.4vw, 28px);
+  top: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-top));
 }
 
 .hud-left {
-  left: clamp(12px, 2.4vw, 28px);
-  width: min(330px, 31vw);
+  left: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-left));
+  width: min(320px, 29vw);
 }
 
 .hud-center {
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
-  width: min(460px, 38vw);
+  width: min(360px, 30vw);
 }
 
 .hud-right {
-  right: clamp(12px, 2.4vw, 28px);
-  width: min(240px, 36vw);
+  right: max(clamp(12px, 2.4vw, 28px), env(safe-area-inset-right));
+  width: min(232px, 31vw);
   text-align: right;
+}
+
+.hud-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 6px;
+  pointer-events: auto;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  color: #cbd6e0;
+  border: 1px solid var(--line);
+  background: rgba(8, 11, 14, 0.8);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.icon-btn:hover,
+.icon-btn:focus-visible {
+  color: var(--acid);
+  border-color: rgba(200, 255, 85, 0.5);
+  background: rgba(12, 17, 20, 0.95);
+}
+
+.wave-chip {
+  display: inline-block;
+  margin-bottom: 5px;
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: #d9f7a0;
+  border: 1px solid rgba(200, 255, 85, 0.35);
+  background: rgba(10, 16, 8, 0.72);
 }
 
 .hero-plate {
@@ -787,6 +962,10 @@ kbd {
 
 .level-label {
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 4px 12px;
   font-size: 9px;
   font-weight: 800;
@@ -797,6 +976,10 @@ kbd {
 
 .objective {
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-top: 6px;
   padding: 4px 16px;
   font-family: var(--hud-font);
@@ -1020,8 +1203,9 @@ kbd {
 .toast {
   position: fixed;
   left: 50%;
-  top: 17vh;
+  top: clamp(104px, 15vh, 150px);
   z-index: 15;
+  max-width: min(86vw, 520px);
   transform: translateX(-50%);
   padding: 9px 18px;
   border-left: 2px solid var(--gold);
@@ -1029,6 +1213,7 @@ kbd {
   font-family: var(--hud-font);
   font-size: 12px;
   letter-spacing: 0.12em;
+  text-align: center;
   text-transform: uppercase;
   color: #f1f5f8;
   animation: toastIn 0.22s ease-out;
@@ -1214,11 +1399,11 @@ kbd {
 }
 
 .t-pause {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  min-width: 42px;
-  min-height: 38px;
+  position: fixed;
+  left: 14px;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 142px);
+  min-width: 48px;
+  min-height: 40px;
   pointer-events: auto;
 }
 
@@ -1231,139 +1416,117 @@ kbd {
 
 /* Responsive */
 
-@media (max-width: 980px) {
-  .hud-left { width: 30vw; max-width: 280px; }
-  .hud-right { width: min(220px, 36vw); }
-  .hud-center { width: 35vw; max-width: 340px; }
-  .level-label { font-size: 8px; padding: 3px 8px; }
-  .objective { font-size: 11px; padding: 3px 10px; letter-spacing: 0.04em; }
-  .hero-plate { padding: 8px 9px 9px; gap: 8px; }
-  .hero-mark { width: 38px; height: 38px; flex-basis: 38px; }
-  .stat-value { font-size: 19px; min-width: 54px; }
-  .meters { padding: 5px 2px 6px; margin-top: 7px; }
-  .meter { padding: 0 5px; }
+@media (max-width: 1100px) {
+  .hud-left { width: min(300px, 30vw); }
+  .hud-right { width: min(212px, 32vw); }
+  .hud-center { width: min(320px, 30vw); }
+  .stat-value { font-size: 22px; min-width: 60px; }
 }
 
-@media (max-width: 860px) {
-  .hud-left { width: 29vw; }
-  .hud-right { width: min(220px, 36vw); }
-  .hud-center { width: 36vw; }
+/* Below 900 px the three absolute columns start competing for the same
+   horizontal band. Keep the compact wave chip, drop the long district text. */
+@media (max-width: 900px) {
+  .hud-left { width: min(286px, 32vw); }
+  .hud-right { width: min(204px, 33vw); }
+  .hud-center { width: auto; max-width: 26vw; }
+  .level-label,
+  .objective { display: none; }
+  .wave-chip { margin-bottom: 0; }
   .hint-bar { gap: 10px; font-size: 7px; }
   .controls-card { gap: 7px 18px; padding: 12px 14px; margin-top: 16px; }
 }
 
-@media (max-width: 620px) {
-  .hud-center {
-    top: clamp(12px, 2.4vw, 28px);
-    width: 36vw;
+@media (max-width: 680px) {
+  .hud-left { width: min(240px, 44vw); }
+  .hud-right { width: min(170px, 34vw); }
+  .hud-center { max-width: 20vw; }
+  .hud-tools { margin-bottom: 4px; }
+  .icon-btn { width: 28px; height: 24px; }
+  .hero-plate { padding: 7px 8px 8px; gap: 7px; }
+  .hero-mark { display: none; }
+  .bar-label { font-size: 8px; letter-spacing: 0.06em; }
+  .stat { padding: 1px 6px 2px; gap: 6px; }
+  .stat-value { min-width: 42px; font-size: 17px; }
+  .stat-label { font-size: 8px; }
+  .meters { margin-top: 6px; padding: 4px 1px 5px; flex-wrap: wrap; }
+  .meter { padding: 0 4px; flex: 1 1 46%; }
+  .meter:nth-child(3) {
+    flex: 1 1 100%;
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 4px;
+    padding-top: 4px;
   }
-  .hud-left {
-    width: 30vw;
-  }
-  .hud-right {
-    width: min(190px, 30vw);
-  }
-  .meters {
-    flex-direction: column;
-    padding: 5px 4px 6px;
-  }
-  .meter {
-    padding: 0 3px;
-  }
+  .meter .stat-label,
+  .meter .special-text { font-size: 7px; }
+  .meter-head { margin-bottom: 3px; }
+  .wave-chip { padding: 2px 7px; font-size: 8px; letter-spacing: 0.1em; }
+  .hint-bar { display: none; }
+  .combo-wrap { bottom: 24vh; }
+  .grab-hint { bottom: 31vh; }
+  .toast { top: clamp(96px, 22vh, 150px); font-size: 10px; padding: 7px 12px; }
+  .menu-frame { padding: 26px 20px; }
+  .menu-actions { flex-wrap: wrap; }
+  .menu-actions .btn { flex: 1 1 44%; }
+  .menu-topline { flex-wrap: wrap; gap: 9px 14px; }
+  .menu-lang { margin-left: auto; }
+  .menu-lang-label { font-size: 7px; }
+  .lang-btn { min-width: 34px; padding: 4px 7px 5px; }
+  .menu-footer { flex-direction: column; gap: 6px; }
+  .settings-card { padding: 10px 11px; }
+  .range { width: 110px; }
+  .settings-note { font-size: 9px; }
+  .trailer-subtitle { bottom: max(7vh, 34px); width: 90vw; font-size: clamp(15px, 4.4vw, 22px); }
+  .trailer-skip { top: 12px; right: 12px; padding: 7px 10px 8px; font-size: 9px; }
+  .trailer-title-main { font-size: clamp(40px, 12vw, 74px); }
+}
+
+@media (max-width: 480px) {
+  .hud-left { width: 46vw; }
+  .hud-right { width: 34vw; }
+  .meters { flex-direction: column; }
+  .meter { padding: 0 3px; }
   .meter + .meter {
     border-left: 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
-    margin-top: 5px;
-    padding-top: 5px;
+    margin-top: 4px;
+    padding-top: 4px;
   }
-  .meter .stat-label,
-  .meter .special-text {
-    font-size: 8px;
-  }
-  .meter-head { margin-bottom: 4px; }
-  .controls-card { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px; }
-  .hero-mark {
-    display: none;
-  }
-  .stat-value {
-    min-width: 38px;
-    font-size: 16px;
-  }
-  .bar-label { font-size: 8px; letter-spacing: 0.08em; }
-  .hint-bar {
-    display: none;
-  }
-  .combo-wrap {
-    bottom: 22vh;
-  }
-  .grab-hint {
-    bottom: 30vh;
-  }
-  .level-label {
-    font-size: 7px;
-    padding: 3px 6px;
-  }
-  .objective {
-    font-size: 9px;
-    padding: 3px 6px;
-  }
-  .menu-frame {
-    padding: 28px 22px;
-  }
-  .menu-topline {
-    flex-wrap: wrap;
-    gap: 9px 14px;
-  }
-  .menu-lang {
-    margin-left: auto;
-  }
-  .menu-lang-label {
-    font-size: 7px;
-  }
-  .lang-btn {
-    min-width: 34px;
-    padding: 4px 7px 5px;
-  }
-  .menu-footer {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .trailer-subtitle {
-    bottom: max(6vh, 40px);
-    width: 90vw;
-    font-size: clamp(15px, 4.4vw, 22px);
-  }
-  .trailer-skip {
-    top: 12px;
-    right: 12px;
-    padding: 7px 10px 8px;
-    font-size: 9px;
-  }
-  .trailer-title-main {
-    font-size: clamp(40px, 12vw, 74px);
-  }
+  .stat-value { font-size: 15px; min-width: 34px; }
+  .hero-plate { padding: 6px 7px 7px; }
+  .combo-wrap { bottom: 26vh; }
 }
 
+/* Short viewports (landscape phones, small desktop windows): compress the
+   menu so the primary actions stay above the fold. */
+@media (max-height: 560px) {
+  .menu-frame { padding: 18px 22px; }
+  .game-title { font-size: clamp(38px, 8vh, 56px); line-height: 0.9; }
+  .tagline { margin: 8px 0 14px; font-size: 12px; }
+  .menu-actions { gap: 8px; }
+  .menu-actions .btn { padding: 10px 16px 11px; }
+  .menu-footer { margin-top: 12px; padding-top: 9px; gap: 8px; }
+  .settings-card { margin-top: 10px; padding: 9px 11px; gap: 6px; }
+  .settings-row { min-height: 26px; }
+  .settings-note { display: none; }
+  .controls-card { margin-top: 10px; padding: 10px 12px; gap: 5px 16px; }
+  .eyebrow { font-size: 9px; }
+}
+
+/* Touch devices: the on-screen pad owns the lower corners, so the HUD must
+   stay slim and the toast must sit above it. */
 @media (pointer: coarse) {
-  #touch-controls {
-    display: block;
-  }
-  .hint-bar {
-    display: none;
-  }
-  .hud-left {
-    width: min(320px, 55vw);
-  }
-  .hud-right {
-    width: min(190px, 47vw);
-  }
-  .hud-center {
-    top: 92px;
-    width: 70vw;
-  }
-  .combo-wrap {
-    bottom: 24vh;
-  }
+  #touch-controls { display: block; }
+  .hint-bar { display: none; }
+  .hud-left { width: min(300px, 46vw); }
+  .hud-right { width: min(180px, 34vw); }
+  .hud-center { top: max(clamp(10px, 2vw, 18px), env(safe-area-inset-top)); max-width: 22vw; }
+  .level-label,
+  .objective { display: none; }
+  .wave-chip { margin-bottom: 0; }
+  .combo-wrap { bottom: 30vh; }
+  .toast { top: clamp(86px, 16vh, 130px); }
+  .touch-btn { min-width: 52px; min-height: 44px; }
 }
 
 @media (max-height: 620px) {

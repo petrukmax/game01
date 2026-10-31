@@ -11,7 +11,7 @@
   const TYPES = {
     grunt: {
       labelKey: "enemy.grunt",
-      health: 64,
+      health: 52,
       speed: 1.85,
       damage: 6,
       score: 60,
@@ -42,9 +42,9 @@
     },
     brute: {
       labelKey: "enemy.brute",
-      health: 148,
+      health: 110,
       speed: 1.18,
-      damage: 12,
+      damage: 11,
       score: 130,
       radius: 0.56,
       height: 2.0,
@@ -73,7 +73,7 @@
     },
     agile: {
       labelKey: "enemy.agile",
-      health: 48,
+      health: 40,
       speed: 2.7,
       damage: 5,
       score: 90,
@@ -108,8 +108,8 @@
     {
       nameKey: "boss.harbormaster",
       base: "brute",
-      health: 420,
-      damage: 14,
+      health: 320,
+      damage: 13,
       speed: 1.3,
       scale: 1.42,
       score: 800,
@@ -118,8 +118,8 @@
     {
       nameKey: "boss.sensei",
       base: "agile",
-      health: 380,
-      damage: 12,
+      health: 300,
+      damage: 11,
       speed: 2.35,
       scale: 1.24,
       score: 1000,
@@ -128,8 +128,8 @@
     {
       nameKey: "boss.forgemaster",
       base: "brute",
-      health: 660,
-      damage: 18,
+      health: 460,
+      damage: 16,
       speed: 1.18,
       scale: 1.62,
       score: 1400,
@@ -155,10 +155,13 @@
     this.def = def;
     this.labelKey = def.labelKey || "enemy.grunt";
     this.label = I18n.t(this.labelKey);
-    this.maxHealth = def.health;
-    this.health = def.health;
+    const mods = (game && typeof game.difficultyMods === "function")
+      ? game.difficultyMods()
+      : { enemyHealth: 1, enemyDamage: 1 };
+    this.maxHealth = Math.max(1, Math.round(def.health * (mods.enemyHealth || 1)));
+    this.health = this.maxHealth;
     this.speed = def.speed;
-    this.damage = def.damage;
+    this.damage = def.damage * (mods.enemyDamage || 1);
     this.scoreValue = def.score;
     this.radius = def.radius * (this.isBoss ? 1.08 : 1);
     this.height = def.height * (def.scale || 1);
@@ -203,6 +206,7 @@
     this.blockedHit = false;
     this.roarTimer = 4;
     this.shockwaveCooldown = 6;
+    this.shockwaveTimer = 0;
     this.bossPhase = false;
     this.floatOffset = 0;
 
@@ -214,6 +218,7 @@
     this.materials = {};
     this.buildModel();
     this.buildHealthBar();
+    this.buildTelegraph();
     this.syncRoot();
   }
 
@@ -462,6 +467,40 @@
     }
   };
 
+  Enemy.prototype.buildTelegraph = function () {
+    const mat = new T.MeshBasicMaterial({
+      color: 0xff7a3c,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: T.DoubleSide
+    });
+    const ring = new T.Mesh(new T.RingGeometry(0.56, 0.74, 28), mat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.02;
+    ring.visible = false;
+    this.root.add(ring);
+    this.telegraph = ring;
+    this.telegraphMat = mat;
+  };
+
+  Enemy.prototype.updateTelegraph = function () {
+    const ring = this.telegraph;
+    if (!ring) return;
+    const show = this.state === "attackWindup" && this.windup > 0.12;
+    if (!show) {
+      ring.visible = false;
+      return;
+    }
+    const p = Math.min(1, this.stateTime / Math.max(0.01, this.windup));
+    const shock = this.attackKind === "shockwave";
+    ring.visible = true;
+    const s = shock ? (1.9 + p * 1.4) : (0.72 + p * 0.55);
+    ring.scale.set(s, s, s);
+    this.telegraphMat.color.setHex(shock ? 0xffb347 : 0xff7a3c);
+    this.telegraphMat.opacity = (shock ? 0.16 : 0.12) + p * (shock ? 0.4 : 0.5);
+  };
+
   Enemy.prototype.buildHealthBar = function () {
     const bar = new T.Group();
     const width = this.isBoss ? 1.5 : 0.92;
@@ -576,6 +615,7 @@
       this.stateTime = 0;
       this.dodgeDir = Math.random() < 0.5 ? -1 : 1;
       this.vx = this.dodgeDir * 3.4;
+      this.vz = (Math.random() - 0.5) * 2.2;
       this.vy = 1.6;
       this.y = 0.01;
       return true;
@@ -666,7 +706,12 @@
     if (this.invuln > 0) this.invuln -= dt;
     if (this.barTimer > 0) this.barTimer -= dt;
     if (this.shockwaveCooldown > 0) this.shockwaveCooldown -= dt;
+    if (this.shockwaveTimer > 0) {
+      this.shockwaveTimer -= dt;
+      if (this.shockwaveTimer <= 0) this.fireShockwave();
+    }
 
+    this.updateTelegraph();
     this.applyFlash();
 
     if (this.state === "dead") {
@@ -754,7 +799,7 @@
 
     if (this.state === "dodge") {
       this.x += this.vx * dt;
-      this.vz += this.vz * dt;
+      this.z += this.vz * dt;
       this.y += this.vy * dt;
       this.vy -= 14 * dt;
       if (this.y <= 0) { this.y = 0; this.vy = 0; }
@@ -951,34 +996,42 @@
     this.attackKind = "shockwave";
     this.windup = 0.7;
     this.shockwaveCooldown = 7.5;
+    this.shockwaveTimer = 0.52;
     this.vx = 0;
     this.vz = 0;
     this.facing = hero.x > this.x ? 1 : -1;
     this.game.audio.play("bossRoar");
     this.game.ui.toast(I18n.t("toast.shockwave"), 900);
-    const self = this;
-    setTimeout(function () {
-      if (!self || self.dead || self.state === "grabbed") return;
-      const cx = self.x;
-      const cz = self.z;
-      self.game.particles.burst(new T.Vector3(cx, 0.2, cz), "#ffb35e", 26, {
-        speed: 7.5, up: 0.15, life: 0.5, spread: 0.6, gravity: -4, depth: 1
-      });
-      self.game.particles.dust(new T.Vector3(cx, 0.1, cz), "#c8bda6");
-      self.game.audio.play("shockwave");
-      self.game.shake(0.55, 0.4);
-      const hx = self.game.hero.x - cx;
-      const hz = self.game.hero.z - cz;
+  };
+
+  Enemy.prototype.fireShockwave = function () {
+    if (this.dead || this.state === "grabbed") return;
+    this.shockwaveTimer = 0;
+    const cx = this.x;
+    const cz = this.z;
+    this.game.particles.burst(new T.Vector3(cx, 0.2, cz), "#ffb35e", 26, {
+      speed: 7.5, up: 0.15, life: 0.5, spread: 0.6, gravity: -4, depth: 1
+    });
+    this.game.particles.dust(new T.Vector3(cx, 0.1, cz), "#c8bda6");
+    this.game.audio.play("shockwave");
+    this.game.shake(0.55, 0.4);
+    const hero = this.game.hero;
+    if (hero && !hero.dead) {
+      const hx = hero.x - cx;
+      const hz = hero.z - cz;
       if (Math.hypot(hx, hz) < 2.3) {
-        self.game.hero.takeDamage(10, cx, { knockback: 5, knockdown: true, heavy: true });
+        const mods = (this.game && typeof this.game.difficultyMods === "function")
+          ? this.game.difficultyMods()
+          : { enemyDamage: 1 };
+        hero.takeDamage(10 * (mods.enemyDamage || 1), cx, { knockback: 5, knockdown: true, heavy: true });
       }
-      for (const other of self.game.enemies) {
-        if (!other || other === self || other.dead) continue;
-        if (Math.hypot(other.x - cx, other.z - cz) < 2.0) {
-          other.takeDamage(4, cx, { knockback: 2.4 });
-        }
+    }
+    for (const other of this.game.enemies) {
+      if (!other || other === this || other.dead) continue;
+      if (Math.hypot(other.x - cx, other.z - cz) < 2.0) {
+        other.takeDamage(4, cx, { knockback: 2.4 });
       }
-    }, 520);
+    }
   };
 
   Enemy.prototype.updateThrown = function (dt) {
